@@ -1,0 +1,824 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="description" content="Oficina A1: pedidos, compras de filamento e cálculo de custo e preço para impressão 3D na Bambu Lab A1"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><title>Oficina A1 · Gestão 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#EEF1F0; --surface:#FFFFFF; --surface-2:#F6F8F7; --line:#D5DCDA; --line-2:#E4E9E7;
+  --ink:#14201E; --muted:#58686A; --faint:#8A9A9B;
+  --accent:#0B6E5F; --accent-ink:#FFFFFF; --accent-soft:#DDF0EB;
+  --price:#B4480F; --price-soft:#FBE9DD;
+  --ok:#1E7A3C; --ok-soft:#E1F2E6; --warn:#9A6400; --warn-soft:#FBF0D5; --bad:#B42318; --bad-soft:#FDE4E1; --info:#2B59B8; --info-soft:#E3EBFA;
+  --shadow:0 1px 2px rgba(20,32,30,.06),0 4px 16px rgba(20,32,30,.05);
+  --display:"Archivo",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0F1514; --surface:#172020; --surface-2:#1C2726; --line:#2C3A39; --line-2:#243130;
+    --ink:#E6EEEC; --muted:#9DB0AE; --faint:#6E8280;
+    --accent:#3FC4A8; --accent-ink:#06201A; --accent-soft:#16352F;
+    --price:#F4935A; --price-soft:#3A2418;
+    --ok:#5BD08A; --ok-soft:#173222; --warn:#E9B44C; --warn-soft:#352A12; --bad:#FF8A7E; --bad-soft:#3A1916; --info:#8FB0F5; --info-soft:#1B2640;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0F1514; --surface:#172020; --surface-2:#1C2726; --line:#2C3A39; --line-2:#243130;
+  --ink:#E6EEEC; --muted:#9DB0AE; --faint:#6E8280;
+  --accent:#3FC4A8; --accent-ink:#06201A; --accent-soft:#16352F;
+  --price:#F4935A; --price-soft:#3A2418;
+  --ok:#5BD08A; --ok-soft:#173222; --warn:#E9B44C; --warn-soft:#352A12; --bad:#FF8A7E; --bad-soft:#3A1916; --info:#8FB0F5; --info-soft:#1B2640;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+section.view>*,.panel,.panel-b,.calc>*,.grid2>*{min-width:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5;margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--bg);border-bottom:1px solid var(--line);}
+.top-in{max-width:1180px;margin:0 auto;padding-inline:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px 0}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand h1{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em;margin:0}
+.brand small{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em}
+.sync{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.dot.on{background:var(--ok)} .dot.local{background:var(--warn)}
+nav.tabs{display:flex;gap:2px;overflow-x:auto;width:100%;scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{font:600 13px var(--body);color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:10px 12px;cursor:pointer;white-space:nowrap}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+nav.tabs button:hover{color:var(--ink)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+section.view{padding-top:20px;display:grid;gap:20px}
+h2{font-family:var(--display);font-weight:700;font-size:22px;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h3{font-family:var(--display);font-weight:700;font-size:15px;margin:0}
+.eyebrow{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.sub{color:var(--muted);margin:4px 0 0;max-width:68ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line-2);flex-wrap:wrap}
+.panel-b{padding:16px}
+.head-row{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:4px}
+.kpi .v{font:600 22px var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .d{font-size:12px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+.calc{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.grid2,.calc{grid-template-columns:1fr}}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:12px}
+legend{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:0;margin-bottom:8px}
+.fs+.fs{border-top:1px dashed var(--line);padding-top:16px;margin-top:16px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label.f{display:grid;gap:4px;font-size:12px;font-weight:500;color:var(--muted)}
+label.f .hint{font-weight:400;color:var(--faint);font-size:11px}
+input,select,textarea{font:500 14px var(--body);color:var(--ink);background:var(--surface-2);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;min-width:0}
+input[type="number"]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+input[type="checkbox"]{width:auto}
+textarea{resize:vertical;min-height:60px}
+.unit{position:relative}
+.unit input{padding-right:44px}
+.unit span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font:500 11px var(--mono);color:var(--faint);pointer-events:none}
+.btn{font:600 13px var(--body);border-radius:7px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{border-color:var(--faint)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+/* breakdown */
+.bd{display:grid;gap:0}
+.bd-row{display:grid;grid-template-columns:12px 1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-2)}
+.bd-row .sw{width:10px;height:10px;border-radius:2px}
+.bd-row .lbl{font-size:13px}
+.bd-row .lbl small{display:block;color:var(--faint);font-size:11px;font-family:var(--mono)}
+.bd-row .pct{font:500 12px var(--mono);color:var(--muted);min-width:44px;text-align:right}
+.bd-row .val{font:600 14px var(--mono);font-variant-numeric:tabular-nums;min-width:84px;text-align:right}
+.bd-total{display:flex;justify-content:space-between;padding:12px 0 4px;font-weight:600}
+.bd-total .val{font:700 16px var(--mono)}
+.stack{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--line-2);margin:4px 0 12px}
+.stack i{display:block;height:100%}
+.pricebox{background:var(--price-soft);border-radius:10px;padding:16px;display:grid;gap:10px}
+.pricebox .big{font:700 34px var(--mono);color:var(--price);letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.pricebox .row{display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.pricebox .row b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.mtable{width:100%;border-collapse:collapse;font-size:13px}
+.mtable th,.mtable td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line-2)}
+.mtable th:first-child,.mtable td:first-child{text-align:left}
+.mtable th{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mtable td{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.mtable tr.cur td{background:var(--accent-soft);font-weight:600}
+/* lists */
+.tbl-wrap{overflow-x:auto}
+table.list{width:100%;border-collapse:collapse;font-size:13px;min-width:720px}
+table.list th{font:600 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
+table.list td{padding:10px 12px;border-bottom:1px solid var(--line-2);vertical-align:top}
+table.list td.r,table.list th.r{text-align:right}
+table.list tr:last-child td{border-bottom:0}
+table.list .t1{font-weight:600}
+table.list .t2{color:var(--muted);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:5px;font:600 11px var(--body);padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.s-orc{background:var(--info-soft);color:var(--info)}
+.s-apr{background:var(--accent-soft);color:var(--accent)}
+.s-imp{background:var(--warn-soft);color:var(--warn)}
+.s-pro{background:var(--ok-soft);color:var(--ok)}
+.s-ent{background:var(--surface-2);color:var(--muted)}
+.s-can{background:var(--bad-soft);color:var(--bad)}
+select.status{width:auto;padding:4px 8px;font-size:12px}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-family:var(--display);font-size:15px;margin-bottom:4px}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 12px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:4px 10px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.drawer{border:1px solid var(--accent);border-radius:10px;background:var(--surface);box-shadow:var(--shadow)}
+.note{font-size:12px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;padding:10px 12px}
+.note b{color:var(--ink)}
+.bar{height:6px;border-radius:3px;background:var(--line-2);overflow:hidden;min-width:80px}
+.bar i{display:block;height:100%;background:var(--accent)}
+.bar.low i{background:var(--bad)}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid var(--line);vertical-align:-1px;margin-right:6px}
+.refs{display:grid;gap:10px;font-size:13px}
+.refs a{color:var(--accent)}
+.refs li{margin-bottom:6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;font-size:13px;z-index:50;box-shadow:var(--shadow)}
+.confirm{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--bad)}
+.derived{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);padding:6px 10px;background:var(--surface-2);border-radius:6px}
+.derived b{font-family:var(--mono);color:var(--ink)}
+.list-min{display:grid;gap:0}
+.list-min > div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2);align-items:center}
+.list-min > div:last-child{border-bottom:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><h1>Oficina A1</h1><small>IMPRESSÃO 3D · BAMBU LAB A1</small></div>
+    <div class="sync" id="sync"><span class="dot"></span><span>carregando…</span></div>
+    <nav class="tabs" role="tablist" aria-label="Seções">
+      <button role="tab" data-tab="painel" aria-selected="true">Painel</button>
+      <button role="tab" data-tab="calc">Calcular preço</button>
+      <button role="tab" data-tab="pedidos">Pedidos</button>
+      <button role="tab" data-tab="compras">Compras e estoque</button>
+      <button role="tab" data-tab="config">Parâmetros de custo</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================= PAINEL ================= -->
+<section class="view" id="v-painel">
+  <div class="head-row">
+    <div><div class="eyebrow" id="p-mes"></div><h2>Visão geral do negócio</h2></div>
+    <div class="actions"><button class="btn pri" data-go="pedidos" data-new="1">+ Novo pedido</button><button class="btn" data-go="compras" data-new="1">+ Registrar compra</button></div>
+  </div>
+  <div class="kpis" id="p-kpis"></div>
+  <div class="grid2">
+    <div class="panel"><div class="panel-h"><h3>Próximas entregas</h3><button class="btn ghost sm" data-go="pedidos">Ver pedidos</button></div><div class="panel-b" id="p-entregas"></div></div>
+    <div class="panel"><div class="panel-h"><h3>Filamento em estoque</h3><button class="btn ghost sm" data-go="compras">Ver estoque</button></div><div class="panel-b" id="p-estoque"></div></div>
+  </div>
+</section>
+
+<!-- ================= CALCULADORA ================= -->
+<section class="view" id="v-calc" hidden>
+  <div class="head-row">
+    <div><div class="eyebrow">Custo por impressão</div><h2>Calcular custo e preço de venda</h2>
+    <p class="sub">Copie o peso (g) e o tempo que o Bambu Studio mostra depois de fatiar. Energia, desgaste, mão de obra e margem vêm dos parâmetros de custo.</p></div>
+  </div>
+  <div class="calc">
+    <div class="panel"><div class="panel-b">
+      <fieldset class="fs"><legend>Peça</legend>
+        <div class="fields">
+          <label class="f" style="grid-column:1/-1">Descrição da peça<input id="c-desc" placeholder="Ex.: Suporte de celular articulado"></label>
+          <label class="f" style="grid-column:1/-1">Filamento<select id="c-mat"></select></label>
+          <label class="f" id="c-precokg-w">Preço do filamento<div class="unit"><input id="c-precokg" type="number" step="0.01" min="0"><span>R$/kg</span></div></label>
+          <label class="f">Filamento usado<div class="unit"><input id="c-g" type="number" step="0.1" min="0"><span>g</span></div><span class="hint">incluindo suportes e purga</span></label>
+          <label class="f">Tempo de impressão<div class="unit"><input id="c-h" type="number" step="1" min="0"><span>h</span></div></label>
+          <label class="f">&nbsp;<div class="unit"><input id="c-min" type="number" step="1" min="0" max="59" aria-label="minutos"><span>min</span></div></label>
+          <label class="f">Quantidade<div class="unit"><input id="c-qtd" type="number" step="1" min="1"><span>un</span></div></label>
+        </div>
+      </fieldset>
+      <fieldset class="fs"><legend>Trabalho e extras (por peça)</legend>
+        <div class="fields">
+          <label class="f">Trabalho manual<div class="unit"><input id="c-mo" type="number" step="1" min="0"><span>min</span></div><span class="hint">fatiar, retirar, lixar, embalar</span></label>
+          <label class="f">Embalagem e outros<div class="unit"><input id="c-outros" type="number" step="0.01" min="0"><span>R$</span></div></label>
+          <label class="f">Margem de lucro<div class="unit"><input id="c-margem" type="number" step="1" min="0" max="90"><span>%</span></div><span class="hint">sobre o preço final</span></label>
+          <label class="f">Taxa de venda<div class="unit"><input id="c-taxa" type="number" step="0.1" min="0" max="50"><span>%</span></div><span class="hint">marketplace, cartão, Pix…</span></label>
+        </div>
+      </fieldset>
+      <div class="fs actions">
+        <button class="btn pri" id="c-to-pedido">Criar pedido com este preço</button>
+        <button class="btn ghost" id="c-reset">Voltar aos padrões</button>
+      </div>
+    </div></div>
+    <div class="panel"><div class="panel-b" style="display:grid;gap:16px">
+      <div>
+        <div class="eyebrow" style="margin-bottom:6px">Custo de produção por peça</div>
+        <div class="stack" id="r-stack"></div>
+        <div class="bd" id="r-bd"></div>
+      </div>
+      <div class="pricebox">
+        <div class="eyebrow">Preço de venda sugerido (por peça)</div>
+        <div class="big" id="r-preco"></div>
+        <div class="row"><span>Lucro líquido por peça</span><b id="r-lucro"></b></div>
+        <div class="row"><span>Markup sobre o custo</span><b id="r-markup"></b></div>
+        <div class="row" id="r-total-row"><span>Total do pedido</span><b id="r-total"></b></div>
+      </div>
+      <div>
+        <div class="eyebrow" style="margin-bottom:6px">Mesma peça em outras margens</div>
+        <div class="tbl-wrap"><table class="mtable" id="r-mt"></table></div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<!-- ================= PEDIDOS ================= -->
+<section class="view" id="v-pedidos" hidden>
+  <div class="head-row">
+    <div><div class="eyebrow">Clientes</div><h2>Pedidos</h2></div>
+    <div class="actions"><button class="btn pri" id="o-new">+ Novo pedido</button></div>
+  </div>
+  <div id="o-form-slot"></div>
+  <div class="panel">
+    <div class="panel-h"><div class="filters" id="o-filters"></div><input id="o-busca" placeholder="Buscar cliente ou peça" style="max-width:240px"></div>
+    <div class="tbl-wrap" id="o-list"></div>
+  </div>
+</section>
+
+<!-- ================= COMPRAS ================= -->
+<section class="view" id="v-compras" hidden>
+  <div class="head-row">
+    <div><div class="eyebrow">Insumos</div><h2>Compras e estoque</h2>
+    <p class="sub">Cada compra de filamento entra no estoque. O consumo sai automaticamente quando um pedido passa para Imprimindo, Pronto ou Entregue.</p></div>
+    <div class="actions"><button class="btn pri" id="b-new">+ Registrar compra</button></div>
+  </div>
+  <div id="b-form-slot"></div>
+  <div class="panel"><div class="panel-h"><h3>Estoque de filamento</h3><span class="eyebrow">custo médio inclui frete</span></div><div class="tbl-wrap" id="b-estoque"></div></div>
+  <div class="panel"><div class="panel-h"><h3>Histórico de compras</h3></div><div class="tbl-wrap" id="b-list"></div></div>
+</section>
+
+<!-- ================= CONFIG ================= -->
+<section class="view" id="v-config" hidden>
+  <div class="head-row">
+    <div><div class="eyebrow">Premissas</div><h2>Parâmetros de custo</h2>
+    <p class="sub">Esses valores alimentam todos os cálculos. Os padrões vêm de dados do fabricante e de pesquisa de mercado (fontes no fim da página); ajuste para a sua realidade.</p></div>
+    <div class="actions"><button class="btn pri" id="k-save">Salvar parâmetros</button></div>
+  </div>
+  <div class="grid2">
+    <div class="panel"><div class="panel-h"><h3>Impressora e desgaste</h3></div><div class="panel-b" style="display:grid;gap:12px">
+      <div class="fields">
+        <label class="f">Valor pago na A1<div class="unit"><input id="k-impVal" type="number" step="1"><span>R$</span></div></label>
+        <label class="f">Valor de revenda no fim<div class="unit"><input id="k-impRes" type="number" step="1"><span>R$</span></div></label>
+        <label class="f">Vida útil<div class="unit"><input id="k-vida" type="number" step="100"><span>h</span></div><span class="hint">horas de impressão</span></label>
+      </div>
+      <div class="derived"><span>Depreciação</span><b id="kd-dep"></b></div>
+      <div class="fields">
+        <label class="f">Hotend/bico de reposição<div class="unit"><input id="k-bicoVal" type="number" step="1"><span>R$</span></div></label>
+        <label class="f">Vida do hotend<div class="unit"><input id="k-bicoVida" type="number" step="50"><span>h</span></div></label>
+        <label class="f">Manutenção mensal<div class="unit"><input id="k-manMes" type="number" step="1"><span>R$</span></div><span class="hint">placa, correias, graxa, limpeza</span></label>
+        <label class="f">Uso por mês<div class="unit"><input id="k-horasMes" type="number" step="10"><span>h</span></div></label>
+      </div>
+      <div class="derived"><span>Desgaste e manutenção</span><b id="kd-man"></b></div>
+    </div></div>
+    <div class="panel"><div class="panel-h"><h3>Energia</h3></div><div class="panel-b" style="display:grid;gap:12px">
+      <div class="fields">
+        <label class="f">Consumo médio da A1<div class="unit"><input id="k-watts" type="number" step="1"><span>W</span></div><span class="hint">Bambu Lab: 95 W imprimindo PLA</span></label>
+        <label class="f">Tarifa de energia<div class="unit"><input id="k-tarifa" type="number" step="0.01"><span>R$/kWh</span></div><span class="hint">total da conta ÷ kWh consumidos</span></label>
+      </div>
+      <div class="derived"><span>Energia</span><b id="kd-en"></b></div>
+      <div class="note">A Bambu Lab informa <b>95 W de média</b> imprimindo PLA e <b>5 W</b> em espera (220 V). PETG e ABS usam mesa e bico mais quentes: se imprimir muito desses materiais, suba para uns 110 a 120 W.</div>
+    </div></div>
+    <div class="panel"><div class="panel-h"><h3>Mão de obra</h3></div><div class="panel-b" style="display:grid;gap:12px">
+      <div class="fields">
+        <label class="f">Salário de referência<div class="unit"><input id="k-sal" type="number" step="10"><span>R$/mês</span></div><span class="hint">técnico júnior em impressão 3D</span></label>
+        <label class="f">Encargos e benefícios<div class="unit"><input id="k-enc" type="number" step="1"><span>%</span></div><span class="hint">0% se você mesmo opera</span></label>
+        <label class="f">Horas trabalhadas<div class="unit"><input id="k-hTrab" type="number" step="1"><span>h/mês</span></div><span class="hint">CLT: 220 h</span></label>
+      </div>
+      <div class="derived"><span>Valor da hora de trabalho</span><b id="kd-mo"></b></div>
+      <div class="note">Média para técnico/operador de impressão 3D júnior no Brasil: <b>cerca de R$ 2.300/mês</b> (Jooble: R$ 2.339/mês em 67 salários; Glassdoor: R$ 2.000 a 3.000 para técnico de impressão 3D, 1 a 3 anos de experiência). Sua planilha usava 3 salários mínimos ÷ 168 h (R$ 28,95/h); se preferir, coloque R$ 4.863 e 168 h.</div>
+    </div></div>
+    <div class="panel"><div class="panel-h"><h3>Padrões da calculadora</h3></div><div class="panel-b" style="display:grid;gap:12px">
+      <div class="fields">
+        <label class="f">Filamento sem estoque<div class="unit"><input id="k-precoKg" type="number" step="1"><span>R$/kg</span></div><span class="hint">Maxprint, Voltz, Multifila: R$ 100 a 130</span></label>
+        <label class="f">Taxa de falha<div class="unit"><input id="k-falha" type="number" step="1"><span>%</span></div><span class="hint">reimpressões e peças perdidas</span></label>
+        <label class="f">Margem padrão<div class="unit"><input id="k-margem" type="number" step="1"><span>%</span></div></label>
+        <label class="f">Taxa de venda padrão<div class="unit"><input id="k-taxa" type="number" step="0.1"><span>%</span></div></label>
+        <label class="f">Trabalho manual padrão<div class="unit"><input id="k-moMin" type="number" step="1"><span>min</span></div></label>
+        <label class="f">Embalagem padrão<div class="unit"><input id="k-emb" type="number" step="0.1"><span>R$</span></div></label>
+        <label class="f">Arredondar preço<select id="k-arred"><option value="90">Final ,90</option><option value="0">Real inteiro</option><option value="none">Não arredondar</option></select></label>
+      </div>
+      <div class="derived"><span>Custo fixo da máquina por hora</span><b id="kd-hora"></b></div>
+    </div></div>
+  </div>
+  <div class="panel"><div class="panel-h"><h3>Backup dos dados</h3></div><div class="panel-b actions">
+    <button class="btn" id="k-export">Baixar backup (.json)</button>
+    <label class="btn" for="k-import">Restaurar backup</label><input type="file" id="k-import" accept=".json,application/json" hidden>
+    <span class="t2" id="k-backup-msg" style="color:var(--muted);font-size:12px"></span>
+  </div></div>
+  <div class="panel"><div class="panel-h"><h3>Fontes e referências</h3></div><div class="panel-b refs">
+    <ul style="margin:0;padding-left:18px">
+      <li>Consumo da A1 (95 W imprimindo PLA, 5 W em espera): <a href="https://wiki.bambulab.com/en/a1/manual/faq" target="_blank" rel="noopener">Bambu Lab Wiki, A1 FAQ</a></li>
+      <li>Salário júnior: <a href="https://br.jooble.org/salary/impress%C3%A3o-3d" target="_blank" rel="noopener">Jooble, salário impressão 3D (R$ 2.339/mês)</a> e <a href="https://www.glassdoor.com.br/Sal%C3%A1rios/tecnico-de-impressao-3d-sal%C3%A1rio-SRCH_KO0,23.htm" target="_blank" rel="noopener">Glassdoor, técnico de impressão 3D (R$ 2.000 a 3.000)</a></li>
+      <li>Preço da A1 no Brasil (a partir de R$ 3.290): <a href="https://loja.fozit.com.br/impressora-3d-bambu-lab-a1/" target="_blank" rel="noopener">Fozit</a>, <a href="https://bambulab.com/pt-br/where-to-buy?region=br" target="_blank" rel="noopener">revendas oficiais Bambu Lab</a></li>
+      <li>Fórmula de preço por margem real (custo ÷ (1 − margem)) e taxa de falha: <a href="https://github.com/Gh0stW33d/PrintMargin" target="_blank" rel="noopener">PrintMargin</a>; outras calculadoras abertas usadas como referência: <a href="https://github.com/topics/3d-print-cost" target="_blank" rel="noopener">GitHub 3d-print-cost</a>, <a href="https://github.com/WeltonSantosFr/ForgeCalc3D" target="_blank" rel="noopener">ForgeCalc3D</a></li>
+      <li>Suas planilhas "Custos de impressão 3D" e "Formação de preço de venda": vida útil de 4.000 h, bico e manutenção mensal rateados por hora de uso.</li>
+    </ul>
+    <p class="note" style="margin:0">Vida útil, hotend e manutenção são estimativas (a Bambu não publica vida útil oficial). Ajuste conforme suas trocas reais.</p>
+  </div></div>
+</section>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+"use strict";
+/* ---------- constantes ---------- */
+const DEFAULTS = {
+  impVal: 3290, impRes: 0, vida: 4000,
+  bicoVal: 120, bicoVida: 800, manMes: 30, horasMes: 100,
+  watts: 95, tarifa: 0.95,
+  sal: 2300, enc: 0, hTrab: 220,
+  precoKg: 115, falha: 10, margem: 50, taxa: 0, moMin: 15, emb: 2, arred: "90"
+};
+const STATUS = [
+  ["orc","Orçamento"],["apr","Aprovado"],["imp","Imprimindo"],["pro","Pronto"],["ent","Entregue"],["can","Cancelado"]
+];
+const STATUS_LBL = Object.fromEntries(STATUS);
+const CONSUMIDO = new Set(["imp","pro","ent"]);
+const ABERTOS = new Set(["orc","apr","imp","pro"]);
+const MARCAS = ["Maxprint","Voltz 3D","Multifila 3D","Bambu Lab"];
+const MATERIAIS = ["PLA","PLA Silk","PLA Matte","PETG","ABS","ASA","TPU"];
+const TIPOS = ["Filamento","Peça de reposição","Embalagem","Outro"];
+const COLORS = ["var(--accent)","var(--info)","var(--warn)","#7C5CC4","var(--price)","#6B7F80","var(--bad)"];
+
+/* ---------- estado ---------- */
+const state = { pedidos: [], compras: [], config: { ...DEFAULTS } };
+let db = null, mode = "local";
+const LS = "oficinaA1.v1";
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const brl = v => (isFinite(v) ? v : 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const n2 = (v, d = 2) => (isFinite(v) ? v : 0).toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const num = v => { const x = parseFloat(String(v).replace(",", ".")); return isFinite(x) ? x : 0; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const today = () => new Date().toISOString().slice(0, 10);
+const fmtDate = d => d ? d.split("-").reverse().join("/") : "—";
+const cfg = () => ({ ...DEFAULTS, ...state.config });
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2400); }
+
+/* ---------- armazenamento ---------- */
+function lsLoad() { try { const raw = localStorage.getItem(LS); if (raw) { const d = JSON.parse(raw); state.pedidos = d.pedidos || []; state.compras = d.compras || []; state.config = { ...DEFAULTS, ...(d.config || {}) }; } } catch (e) {} }
+function lsSave() { try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {} }
+function setSync() {
+  const el = $("#sync");
+  if (mode === "db") el.innerHTML = '<span class="dot on"></span><span>salvo na nuvem</span>';
+  else el.innerHTML = '<span class="dot local"></span><span>salvo neste navegador</span>';
+}
+async function saveDoc(col, obj) {
+  const arr = state[col]; const i = arr.findIndex(x => x.id === obj.id);
+  if (i >= 0) arr[i] = obj; else arr.push(obj);
+  renderAll();
+  if (mode === "db") { try { await db.collection(col).doc(obj.id).set(obj); } catch (e) { toast("Não consegui salvar: " + (e.message || e.code)); } }
+  else lsSave();
+}
+async function delDoc(col, id) {
+  state[col] = state[col].filter(x => x.id !== id); renderAll();
+  if (mode === "db") { try { await db.collection(col).doc(id).delete(); } catch (e) { toast("Não consegui excluir: " + (e.message || e.code)); } }
+  else lsSave();
+}
+async function saveConfig(c) {
+  state.config = c; renderAll();
+  if (mode === "db") { try { await db.doc("config/geral").set(c); } catch (e) { toast("Não consegui salvar: " + (e.message || e.code)); return; } }
+  else lsSave();
+  toast("Parâmetros salvos");
+}
+async function initStore() {
+  setSync(); renderAll();
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const d = await window.claude.use("db");
+    if (!d) return;
+    db = d; mode = "db"; setSync();
+    const local = { pedidos: state.pedidos.slice(), compras: state.compras.slice() };
+    let first = { pedidos: true, compras: true };
+    ["pedidos", "compras"].forEach(col => {
+      db.collection(col).onSnapshot(snap => {
+        state[col] = snap.docs.map(x => x.data());
+        // primeira sincronização: se a nuvem está vazia e o navegador tinha dados, envia
+        if (first[col] && !snap.metadata.fromCache) {
+          first[col] = false;
+          if (snap.empty && local[col].length) local[col].forEach(o => db.collection(col).doc(o.id).set(o).catch(() => {}));
+        }
+        renderAll();
+      }, err => { if (err.code === "revoked") { mode = "local"; setSync(); } });
+    });
+    db.doc("config/geral").onSnapshot(s => { if (s.exists) { state.config = { ...DEFAULTS, ...s.data() }; renderAll(); fillConfigForm(); } });
+  } catch (e) { mode = "local"; setSync(); }
+}
+
+/* ---------- cálculo ---------- */
+function rates(c = cfg()) {
+  const dep = Math.max(0, num(c.impVal) - num(c.impRes)) / Math.max(1, num(c.vida));
+  const man = num(c.bicoVal) / Math.max(1, num(c.bicoVida)) + num(c.manMes) / Math.max(1, num(c.horasMes));
+  const en = num(c.watts) / 1000 * num(c.tarifa);
+  const mo = num(c.sal) * (1 + num(c.enc) / 100) / Math.max(1, num(c.hTrab));
+  return { dep, man, en, mo };
+}
+function arredonda(p, modo) {
+  if (!isFinite(p) || p <= 0) return p;
+  if (modo === "90") return Math.ceil(p - 0.9) + 0.9;
+  if (modo === "0") return Math.ceil(p);
+  return Math.round(p * 100) / 100;
+}
+function precoDe(custo, margemPct, taxaPct, c = cfg()) {
+  const den = 1 - margemPct / 100 - taxaPct / 100;
+  if (den <= 0.02) return NaN;
+  return arredonda(custo / den, c.arred);
+}
+function calcular(inp, c = cfg()) {
+  const r = rates(c);
+  const h = num(inp.h) + num(inp.min) / 60;
+  const fil = num(inp.g) * num(inp.precoKg) / 1000;
+  const energia = h * r.en, dep = h * r.dep, man = h * r.man;
+  const falha = (fil + energia + dep + man) * num(c.falha) / 100;
+  const mo = num(inp.moMin) / 60 * r.mo;
+  const outros = num(inp.outros);
+  const custo = fil + energia + dep + man + falha + mo + outros;
+  const preco = precoDe(custo, num(inp.margem), num(inp.taxa), c);
+  const lucro = preco * (1 - num(inp.taxa) / 100) - custo;
+  return { h, fil, energia, dep, man, falha, mo, outros, custo, preco, lucro, markup: custo > 0 ? (preco / custo - 1) : 0 };
+}
+
+/* ---------- estoque ---------- */
+const matKey = (marca, material, cor) => [marca || "", material || "", cor || ""].map(s => s.trim()).join(" | ");
+function estoque() {
+  const map = new Map();
+  for (const b of state.compras) {
+    if ((b.tipo || "Filamento") !== "Filamento") continue;
+    const k = matKey(b.marca, b.material, b.cor);
+    const g = num(b.qtd) * num(b.peso);
+    const e = map.get(k) || { key: k, marca: b.marca, material: b.material, cor: b.cor, g: 0, gasto: 0, usado: 0 };
+    e.g += g; e.gasto += num(b.valor) + num(b.frete);
+    map.set(k, e);
+  }
+  for (const p of state.pedidos) {
+    if (!CONSUMIDO.has(p.status) || !p.matKey) continue;
+    const e = map.get(p.matKey); if (!e) continue;
+    e.usado += num(p.g) * num(p.qtd || 1) * (1 + num(cfg().falha) / 100);
+  }
+  return [...map.values()].map(e => ({ ...e, saldo: e.g - e.usado, precoKg: e.g > 0 ? e.gasto / e.g * 1000 : 0 }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+}
+function matOptions(sel) {
+  const est = estoque();
+  let h = `<option value="">Preço manual (sem estoque)</option>`;
+  for (const e of est) h += `<option value="${esc(e.key)}" ${e.key === sel ? "selected" : ""}>${esc(e.marca)} ${esc(e.material)} ${esc(e.cor)} · ${brl(e.precoKg)}/kg · ${n2(e.saldo / 1000, 2)} kg</option>`;
+  return h;
+}
+function precoKgDe(key) { const e = estoque().find(x => x.key === key); return e ? e.precoKg : null; }
+
+/* ---------- navegação ---------- */
+function go(tab) {
+  $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  $$("section.view").forEach(s => s.hidden = s.id !== "v-" + tab);
+  try { localStorage.setItem(LS + ".tab", tab); } catch (e) {}
+  window.scrollTo(0, 0);
+}
+$$("nav.tabs button").forEach(b => b.addEventListener("click", () => go(b.dataset.tab)));
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-go]"); if (!b) return;
+  go(b.dataset.go);
+  if (b.dataset.new) { if (b.dataset.go === "pedidos") openOrderForm(); else openBuyForm(); }
+});
+
+/* ---------- calculadora ---------- */
+const CALC_IDS = ["desc", "mat", "precokg", "g", "h", "min", "qtd", "mo", "outros", "margem", "taxa"];
+function calcReset() {
+  const c = cfg();
+  $("#c-desc").value = ""; $("#c-mat").innerHTML = matOptions(""); $("#c-precokg").value = c.precoKg;
+  $("#c-g").value = 44; $("#c-h").value = 3; $("#c-min").value = 30; $("#c-qtd").value = 1;
+  $("#c-mo").value = c.moMin; $("#c-outros").value = c.emb; $("#c-margem").value = c.margem; $("#c-taxa").value = c.taxa;
+  calcUpdate();
+}
+function calcInput() {
+  return { g: $("#c-g").value, h: $("#c-h").value, min: $("#c-min").value, precoKg: $("#c-precokg").value, moMin: $("#c-mo").value, outros: $("#c-outros").value, margem: $("#c-margem").value, taxa: $("#c-taxa").value };
+}
+function calcUpdate() {
+  const matSel = $("#c-mat").value;
+  if (matSel) { const p = precoKgDe(matSel); if (p != null) $("#c-precokg").value = p.toFixed(2); }
+  $("#c-precokg").readOnly = !!matSel;
+  const inp = calcInput(), r = calcular(inp), c = cfg(), rt = rates(c);
+  const qtd = Math.max(1, Math.round(num($("#c-qtd").value)));
+  const parts = [
+    ["Filamento", r.fil, `${n2(num(inp.g), 1)} g × ${brl(num(inp.precoKg))}/kg`],
+    ["Energia", r.energia, `${n2(r.h, 2)} h × ${n2(c.watts, 0)} W × ${brl(c.tarifa)}/kWh`],
+    ["Depreciação da A1", r.dep, `${n2(r.h, 2)} h × ${brl(rt.dep)}/h`],
+    ["Desgaste e manutenção", r.man, `${n2(r.h, 2)} h × ${brl(rt.man)}/h`],
+    ["Reserva para falhas", r.falha, `${n2(c.falha, 0)}% do custo de impressão`],
+    ["Mão de obra", r.mo, `${n2(num(inp.moMin), 0)} min × ${brl(rt.mo)}/h`],
+    ["Embalagem e outros", r.outros, "informado"]
+  ];
+  $("#r-stack").innerHTML = parts.map((p, i) => `<i style="width:${r.custo > 0 ? p[1] / r.custo * 100 : 0}%;background:${COLORS[i]}" title="${p[0]}"></i>`).join("");
+  $("#r-bd").innerHTML = parts.map((p, i) => `<div class="bd-row"><span class="sw" style="background:${COLORS[i]}"></span><span class="lbl">${p[0]}<small>${p[2]}</small></span><span class="pct">${r.custo > 0 ? n2(p[1] / r.custo * 100, 0) : 0}%</span><span class="val">${brl(p[1])}</span></div>`).join("")
+    + `<div class="bd-total"><span>Custo total por peça</span><span class="val">${brl(r.custo)}</span></div>`;
+  const ok = isFinite(r.preco);
+  $("#r-preco").textContent = ok ? brl(r.preco) : "Margem + taxa acima de 98%";
+  $("#r-lucro").textContent = ok ? brl(r.lucro) : "—";
+  $("#r-markup").textContent = ok ? n2(r.markup * 100, 0) + "%" : "—";
+  $("#r-total-row").hidden = qtd <= 1;
+  $("#r-total").textContent = ok ? `${qtd} × ${brl(r.preco)} = ${brl(r.preco * qtd)}` : "—";
+  const cur = num(inp.margem);
+  const ms = [...new Set([30, 40, 50, 60, 70, cur])].sort((a, b) => a - b);
+  $("#r-mt").innerHTML = `<tr><th>Margem</th><th>Preço</th><th>Lucro</th><th>Markup</th></tr>` + ms.map(m => {
+    const p = precoDe(r.custo, m, num(inp.taxa), c); const l = p * (1 - num(inp.taxa) / 100) - r.custo;
+    return `<tr class="${m === cur ? "cur" : ""}"><td>${n2(m, 0)}%</td><td>${isFinite(p) ? brl(p) : "—"}</td><td>${isFinite(p) ? brl(l) : "—"}</td><td>${isFinite(p) && r.custo > 0 ? n2((p / r.custo - 1) * 100, 0) + "%" : "—"}</td></tr>`;
+  }).join("");
+}
+CALC_IDS.forEach(id => $("#c-" + id).addEventListener("input", calcUpdate));
+$("#c-reset").addEventListener("click", calcReset);
+$("#c-to-pedido").addEventListener("click", () => {
+  const r = calcular(calcInput());
+  go("pedidos");
+  openOrderForm({
+    desc: $("#c-desc").value, matKey: $("#c-mat").value, precoKg: num($("#c-precokg").value), g: num($("#c-g").value),
+    h: num($("#c-h").value), min: num($("#c-min").value), qtd: Math.max(1, Math.round(num($("#c-qtd").value))),
+    moMin: num($("#c-mo").value), outros: num($("#c-outros").value), margem: num($("#c-margem").value), taxa: num($("#c-taxa").value),
+    preco: isFinite(r.preco) ? r.preco : 0, status: "orc"
+  });
+});
+
+/* ---------- pedidos ---------- */
+let oFilter = "abertos";
+function openOrderForm(p) {
+  const c = cfg(); const isNew = !p || !p.id;
+  p = { id: "", cliente: "", contato: "", desc: "", matKey: "", precoKg: c.precoKg, g: 0, h: 0, min: 0, qtd: 1, moMin: c.moMin, outros: c.emb, margem: c.margem, taxa: c.taxa, preco: 0, status: "orc", entrega: "", pago: false, obs: "", data: today(), ...(p || {}) };
+  const slot = $("#o-form-slot");
+  slot.innerHTML = `<form class="drawer" id="o-form" autocomplete="off">
+    <div class="panel-h"><h3>${isNew ? "Novo pedido" : "Editar pedido"}</h3><button type="button" class="btn ghost sm" id="of-close">Fechar</button></div>
+    <div class="panel-b">
+    <fieldset class="fs"><legend>Cliente</legend><div class="fields">
+      <label class="f">Nome do cliente<input id="of-cliente" required value="${esc(p.cliente)}"></label>
+      <label class="f">WhatsApp ou e-mail<input id="of-contato" value="${esc(p.contato)}"></label>
+      <label class="f">Data do pedido<input id="of-data" type="date" value="${esc(p.data)}"></label>
+      <label class="f">Entrega prevista<input id="of-entrega" type="date" value="${esc(p.entrega)}"></label>
+    </div></fieldset>
+    <fieldset class="fs"><legend>Peça</legend><div class="fields">
+      <label class="f" style="grid-column:1/-1">Descrição<input id="of-desc" required value="${esc(p.desc)}" placeholder="Ex.: 10 chaveiros personalizados"></label>
+      <label class="f" style="grid-column:1/-1">Filamento<select id="of-mat">${matOptions(p.matKey)}</select></label>
+      <label class="f">Preço do filamento<div class="unit"><input id="of-precoKg" type="number" step="0.01" value="${p.precoKg}"><span>R$/kg</span></div></label>
+      <label class="f">Filamento por peça<div class="unit"><input id="of-g" type="number" step="0.1" value="${p.g}"><span>g</span></div></label>
+      <label class="f">Tempo por peça<div class="unit"><input id="of-h" type="number" step="1" min="0" value="${p.h}"><span>h</span></div></label>
+      <label class="f">&nbsp;<div class="unit"><input id="of-min" type="number" step="1" min="0" max="59" value="${p.min}" aria-label="minutos"><span>min</span></div></label>
+      <label class="f">Quantidade<div class="unit"><input id="of-qtd" type="number" step="1" min="1" value="${p.qtd}"><span>un</span></div></label>
+      <label class="f">Trabalho manual/peça<div class="unit"><input id="of-mo" type="number" step="1" value="${p.moMin}"><span>min</span></div></label>
+      <label class="f">Embalagem e outros/peça<div class="unit"><input id="of-outros" type="number" step="0.01" value="${p.outros}"><span>R$</span></div></label>
+      <label class="f">Margem<div class="unit"><input id="of-margem" type="number" step="1" value="${p.margem}"><span>%</span></div></label>
+      <label class="f">Taxa de venda<div class="unit"><input id="of-taxa" type="number" step="0.1" value="${p.taxa}"><span>%</span></div></label>
+    </div></fieldset>
+    <fieldset class="fs"><legend>Venda</legend><div class="fields">
+      <label class="f">Preço cobrado por peça<div class="unit"><input id="of-preco" type="number" step="0.01" value="${p.preco || ""}"><span>R$</span></div><span class="hint" id="of-sug"></span></label>
+      <label class="f">Status<select id="of-status">${STATUS.map(([k, l]) => `<option value="${k}" ${k === p.status ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label class="f" style="align-content:end"><span style="display:flex;gap:8px;align-items:center;padding:9px 0"><input type="checkbox" id="of-pago" ${p.pago ? "checked" : ""}> Pagamento recebido</span></label>
+      <label class="f" style="grid-column:1/-1">Observações<textarea id="of-obs">${esc(p.obs)}</textarea></label>
+    </div></fieldset>
+    <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar pedido" : "Salvar alterações"}</button><button type="button" class="btn" id="of-usar">Usar preço sugerido</button><span id="of-resumo" class="num" style="color:var(--muted);font-size:12px"></span></div>
+    </div></form>`;
+  const f = $("#o-form");
+  const read = () => ({
+    matKey: $("#of-mat").value, precoKg: num($("#of-precoKg").value), g: num($("#of-g").value), h: num($("#of-h").value), min: num($("#of-min").value),
+    qtd: Math.max(1, Math.round(num($("#of-qtd").value))), moMin: num($("#of-mo").value), outros: num($("#of-outros").value), margem: num($("#of-margem").value), taxa: num($("#of-taxa").value)
+  });
+  const upd = () => {
+    const m = $("#of-mat").value; if (m) { const pk = precoKgDe(m); if (pk != null) $("#of-precoKg").value = pk.toFixed(2); }
+    const x = read(); const r = calcular(x);
+    $("#of-sug").textContent = `sugerido ${isFinite(r.preco) ? brl(r.preco) : "—"} · custo ${brl(r.custo)}`;
+    const pr = num($("#of-preco").value);
+    const lucro = pr * (1 - x.taxa / 100) - r.custo;
+    $("#of-resumo").textContent = pr > 0 ? `Total ${brl(pr * x.qtd)} · lucro ${brl(lucro * x.qtd)}` : "";
+    return r;
+  };
+  f.addEventListener("input", upd); upd();
+  if (!p.preco) { const r = upd(); if (isFinite(r.preco)) { $("#of-preco").value = r.preco.toFixed(2); upd(); } }
+  $("#of-usar").addEventListener("click", () => { const r = upd(); if (isFinite(r.preco)) { $("#of-preco").value = r.preco.toFixed(2); upd(); } });
+  $("#of-close").addEventListener("click", () => slot.innerHTML = "");
+  f.addEventListener("submit", e => {
+    e.preventDefault();
+    const x = read(); const r = calcular(x);
+    const obj = { ...p, ...x, id: p.id || uid("p"), cliente: $("#of-cliente").value.trim(), contato: $("#of-contato").value.trim(), data: $("#of-data").value, entrega: $("#of-entrega").value, desc: $("#of-desc").value.trim(), preco: num($("#of-preco").value), status: $("#of-status").value, pago: $("#of-pago").checked, obs: $("#of-obs").value, custo: r.custo, atualizado: new Date().toISOString() };
+    saveDoc("pedidos", obj); slot.innerHTML = ""; toast(isNew ? "Pedido salvo" : "Pedido atualizado");
+  });
+  slot.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#of-cliente").focus({ preventScroll: true });
+}
+$("#o-new").addEventListener("click", () => openOrderForm());
+$("#o-busca").addEventListener("input", renderOrders);
+function renderOrderFilters() {
+  const cnt = k => k === "abertos" ? state.pedidos.filter(p => ABERTOS.has(p.status)).length : k === "todos" ? state.pedidos.length : state.pedidos.filter(p => p.status === k).length;
+  const opts = [["abertos", "Em aberto"], ...STATUS, ["todos", "Todos"]];
+  $("#o-filters").innerHTML = opts.map(([k, l]) => `<button class="chip" data-f="${k}" aria-pressed="${k === oFilter}">${l} <span class="num">${cnt(k)}</span></button>`).join("");
+}
+$("#o-filters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; oFilter = b.dataset.f; renderOrders(); });
+function renderOrders() {
+  renderOrderFilters();
+  const q = $("#o-busca").value.trim().toLowerCase();
+  let list = state.pedidos.filter(p => oFilter === "todos" ? true : oFilter === "abertos" ? ABERTOS.has(p.status) : p.status === oFilter);
+  if (q) list = list.filter(p => (p.cliente + " " + p.desc + " " + (p.contato || "")).toLowerCase().includes(q));
+  list.sort((a, b) => (a.entrega || "9999").localeCompare(b.entrega || "9999") || (b.data || "").localeCompare(a.data || ""));
+  if (!list.length) {
+    $("#o-list").innerHTML = state.pedidos.length ? `<div class="empty"><b>Nenhum pedido neste filtro</b>Troque o filtro acima ou busque outro nome.</div>`
+      : `<div class="empty"><b>Nenhum pedido ainda</b>Crie o primeiro em "+ Novo pedido" ou pela calculadora, com "Criar pedido com este preço".</div>`;
+    return;
+  }
+  const hoje = today();
+  $("#o-list").innerHTML = `<table class="list"><thead><tr><th>Cliente e peça</th><th>Entrega</th><th>Status</th><th class="r">Qtd</th><th class="r">Total</th><th class="r">Lucro</th><th>Pago</th><th></th></tr></thead><tbody>` +
+    list.map(p => {
+      const q = num(p.qtd || 1), tot = num(p.preco) * q, luc = (num(p.preco) * (1 - num(p.taxa) / 100) - num(p.custo)) * q;
+      const atras = p.entrega && p.entrega < hoje && ABERTOS.has(p.status);
+      return `<tr data-id="${esc(p.id)}">
+        <td><div class="t1">${esc(p.cliente)}</div><div class="t2">${esc(p.desc)}${p.contato ? " · " + esc(p.contato) : ""}</div></td>
+        <td class="num" style="${atras ? "color:var(--bad);font-weight:600" : ""}">${fmtDate(p.entrega)}${atras ? "<div class='t2' style='color:var(--bad)'>atrasado</div>" : ""}</td>
+        <td><select class="status" data-act="status" aria-label="Status">${STATUS.map(([k, l]) => `<option value="${k}" ${k === p.status ? "selected" : ""}>${l}</option>`).join("")}</select></td>
+        <td class="r num">${q}</td><td class="r num">${brl(tot)}</td>
+        <td class="r num" style="color:${luc < 0 ? "var(--bad)" : "var(--ok)"}">${brl(luc)}</td>
+        <td><input type="checkbox" data-act="pago" ${p.pago ? "checked" : ""} aria-label="Pago"></td>
+        <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button></span></td>
+      </tr>`;
+    }).join("") + `</tbody></table>`;
+}
+$("#o-list").addEventListener("change", e => {
+  const tr = e.target.closest("tr[data-id]"); if (!tr) return; const p = state.pedidos.find(x => x.id === tr.dataset.id); if (!p) return;
+  if (e.target.dataset.act === "status") { saveDoc("pedidos", { ...p, status: e.target.value, atualizado: new Date().toISOString(), ...(e.target.value === "ent" && !p.entregueEm ? { entregueEm: today() } : {}) }); toast("Status: " + STATUS_LBL[e.target.value]); }
+  if (e.target.dataset.act === "pago") saveDoc("pedidos", { ...p, pago: e.target.checked });
+});
+$("#o-list").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return; const tr = b.closest("tr[data-id]"); const p = state.pedidos.find(x => x.id === tr.dataset.id); if (!p) return;
+  if (b.dataset.act === "edit") openOrderForm(p);
+  if (b.dataset.act === "del") inlineConfirm(b, () => { delDoc("pedidos", p.id); toast("Pedido excluído"); });
+});
+function inlineConfirm(btn, onYes) {
+  const box = btn.parentElement; const old = box.innerHTML;
+  box.innerHTML = `<span class="confirm">Excluir? <button class="btn sm danger" data-yes>Sim</button><button class="btn sm" data-no>Não</button></span>`;
+  box.querySelector("[data-yes]").addEventListener("click", ev => { ev.stopPropagation(); onYes(); });
+  box.querySelector("[data-no]").addEventListener("click", ev => { ev.stopPropagation(); box.innerHTML = old; });
+}
+
+/* ---------- compras ---------- */
+function openBuyForm(b) {
+  const isNew = !b || !b.id;
+  b = { id: "", data: today(), tipo: "Filamento", marca: "", material: "PLA", cor: "", qtd: 1, peso: 1000, valor: "", frete: 0, desc: "", fornecedor: "", ...(b || {}) };
+  const slot = $("#b-form-slot");
+  slot.innerHTML = `<form class="drawer" id="b-form" autocomplete="off">
+    <div class="panel-h"><h3>${isNew ? "Registrar compra" : "Editar compra"}</h3><button type="button" class="btn ghost sm" id="bf-close">Fechar</button></div>
+    <div class="panel-b"><div class="fields">
+      <label class="f">Data<input id="bf-data" type="date" value="${esc(b.data)}"></label>
+      <label class="f">Tipo<select id="bf-tipo">${TIPOS.map(t => `<option ${t === b.tipo ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      <label class="f fil">Marca<input id="bf-marca" list="dl-marcas" value="${esc(b.marca)}" placeholder="Maxprint"></label>
+      <label class="f fil">Material<input id="bf-material" list="dl-mat" value="${esc(b.material)}"></label>
+      <label class="f fil">Cor<input id="bf-cor" value="${esc(b.cor)}" placeholder="Preto"></label>
+      <label class="f nfil">Item<input id="bf-desc" value="${esc(b.desc)}" placeholder="Ex.: hotend 0,4 mm"></label>
+      <label class="f">Quantidade<div class="unit"><input id="bf-qtd" type="number" step="1" min="1" value="${b.qtd}"><span class="fil-u">rolos</span></div></label>
+      <label class="f fil">Peso por rolo<div class="unit"><input id="bf-peso" type="number" step="50" value="${b.peso}"><span>g</span></div></label>
+      <label class="f">Valor total pago<div class="unit"><input id="bf-valor" type="number" step="0.01" required value="${b.valor}"><span>R$</span></div></label>
+      <label class="f">Frete<div class="unit"><input id="bf-frete" type="number" step="0.01" value="${b.frete}"><span>R$</span></div></label>
+      <label class="f">Loja/fornecedor<input id="bf-forn" value="${esc(b.fornecedor)}" placeholder="Site, Mercado Livre…"></label>
+    </div>
+    <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar compra" : "Salvar alterações"}</button><span id="bf-resumo" class="num" style="color:var(--muted);font-size:12px"></span></div>
+    </div></form>
+    <datalist id="dl-marcas">${MARCAS.map(m => `<option value="${m}">`).join("")}</datalist>
+    <datalist id="dl-mat">${MATERIAIS.map(m => `<option value="${m}">`).join("")}</datalist>`;
+  const f = $("#b-form");
+  const upd = () => {
+    const fil = $("#bf-tipo").value === "Filamento";
+    f.querySelectorAll(".fil").forEach(el => el.hidden = !fil); f.querySelectorAll(".nfil").forEach(el => el.hidden = fil);
+    f.querySelector(".fil-u").textContent = fil ? "rolos" : "un";
+    const g = num($("#bf-qtd").value) * num($("#bf-peso").value), tot = num($("#bf-valor").value) + num($("#bf-frete").value);
+    $("#bf-resumo").textContent = fil && g > 0 && tot > 0 ? `${n2(g / 1000, 2)} kg · ${brl(tot / g * 1000)}/kg com frete` : tot > 0 ? `Total ${brl(tot)}` : "";
+  };
+  f.addEventListener("input", upd); upd();
+  $("#bf-close").addEventListener("click", () => slot.innerHTML = "");
+  f.addEventListener("submit", e => {
+    e.preventDefault();
+    const obj = { ...b, id: b.id || uid("c"), data: $("#bf-data").value, tipo: $("#bf-tipo").value, marca: $("#bf-marca").value.trim(), material: $("#bf-material").value.trim(), cor: $("#bf-cor").value.trim(), desc: $("#bf-desc").value.trim(), qtd: num($("#bf-qtd").value), peso: num($("#bf-peso").value), valor: num($("#bf-valor").value), frete: num($("#bf-frete").value), fornecedor: $("#bf-forn").value.trim() };
+    saveDoc("compras", obj); slot.innerHTML = ""; toast(isNew ? "Compra registrada" : "Compra atualizada");
+  });
+  slot.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+$("#b-new").addEventListener("click", () => openBuyForm());
+function corCss(c) {
+  const m = { preto: "#1b1b1b", branco: "#f4f4f4", vermelho: "#d0312d", azul: "#2c5fd1", verde: "#2e8b57", amarelo: "#f2c230", laranja: "#f07b1f", cinza: "#8a8f94", rosa: "#e97ab0", roxo: "#7b4fc4", marrom: "#7a4e2d", bege: "#d8c3a0", dourado: "#c9a33b", prata: "#b8bcc2" };
+  const k = (c || "").toLowerCase().split(/\s+/)[0]; return m[k] || "transparent";
+}
+function renderBuys() {
+  const est = estoque();
+  $("#b-estoque").innerHTML = !est.length ? `<div class="empty"><b>Sem filamento no estoque</b>Registre uma compra do tipo Filamento para acompanhar saldo e custo médio por kg.</div>` :
+    `<table class="list"><thead><tr><th>Filamento</th><th class="r">Comprado</th><th class="r">Consumido</th><th class="r">Saldo</th><th style="width:140px"></th><th class="r">Custo médio</th></tr></thead><tbody>` +
+    est.map(e => { const pct = e.g > 0 ? Math.max(0, Math.min(1, e.saldo / e.g)) : 0; const low = e.saldo < 250;
+      return `<tr><td><span class="swatch" style="background:${corCss(e.cor)}"></span><span class="t1">${esc(e.marca)} ${esc(e.material)}</span> <span class="t2">${esc(e.cor)}</span></td>
+      <td class="r num">${n2(e.g / 1000, 2)} kg</td><td class="r num">${n2(e.usado / 1000, 2)} kg</td>
+      <td class="r num" style="${low ? "color:var(--bad);font-weight:600" : ""}">${n2(e.saldo / 1000, 2)} kg</td>
+      <td><div class="bar ${low ? "low" : ""}"><i style="width:${pct * 100}%"></i></div></td><td class="r num">${brl(e.precoKg)}/kg</td></tr>`; }).join("") + `</tbody></table>`;
+  const list = state.compras.slice().sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  $("#b-list").innerHTML = !list.length ? `<div class="empty"><b>Nenhuma compra registrada</b>Filamentos, bicos, placas, embalagens: tudo que entra aparece aqui.</div>` :
+    `<table class="list"><thead><tr><th>Data</th><th>Item</th><th>Tipo</th><th class="r">Qtd</th><th class="r">Valor + frete</th><th class="r">R$/kg</th><th></th></tr></thead><tbody>` +
+    list.map(b => { const fil = (b.tipo || "Filamento") === "Filamento"; const g = num(b.qtd) * num(b.peso); const tot = num(b.valor) + num(b.frete);
+      return `<tr data-id="${esc(b.id)}"><td class="num">${fmtDate(b.data)}</td>
+      <td><div class="t1">${fil ? esc(`${b.marca} ${b.material} ${b.cor}`) : esc(b.desc || b.tipo)}</div><div class="t2">${esc(b.fornecedor || "")}</div></td>
+      <td>${esc(b.tipo || "Filamento")}</td><td class="r num">${n2(num(b.qtd), 0)}${fil ? ` × ${n2(num(b.peso), 0)} g` : ""}</td>
+      <td class="r num">${brl(tot)}</td><td class="r num">${fil && g > 0 ? brl(tot / g * 1000) : "—"}</td>
+      <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button></span></td></tr>`; }).join("") + `</tbody></table>`;
+}
+$("#b-list").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return; const tr = b.closest("tr[data-id]"); const c = state.compras.find(x => x.id === tr.dataset.id); if (!c) return;
+  if (b.dataset.act === "edit") openBuyForm(c);
+  if (b.dataset.act === "del") inlineConfirm(b, () => { delDoc("compras", c.id); toast("Compra excluída"); });
+});
+
+/* ---------- painel ---------- */
+function renderPanel() {
+  const now = new Date(); const ym = now.toISOString().slice(0, 7);
+  $("#p-mes").textContent = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const ped = state.pedidos;
+  const abertos = ped.filter(p => ABERTOS.has(p.status) && p.status !== "orc");
+  const orc = ped.filter(p => p.status === "orc");
+  const tot = p => num(p.preco) * num(p.qtd || 1);
+  const luc = p => (num(p.preco) * (1 - num(p.taxa) / 100) - num(p.custo)) * num(p.qtd || 1);
+  const entMes = ped.filter(p => p.status === "ent" && (p.entregueEm || p.entrega || p.data || "").startsWith(ym));
+  const receber = ped.filter(p => (p.status === "pro" || p.status === "ent") && !p.pago);
+  const compMes = state.compras.filter(b => (b.data || "").startsWith(ym));
+  const kg = estoque().reduce((s, e) => s + Math.max(0, e.saldo), 0) / 1000;
+  const k = [
+    ["Em produção", abertos.length, brl(abertos.reduce((s, p) => s + tot(p), 0)) + " em pedidos aprovados"],
+    ["Orçamentos", orc.length, brl(orc.reduce((s, p) => s + tot(p), 0)) + " aguardando cliente"],
+    ["Faturado no mês", brl(entMes.reduce((s, p) => s + tot(p), 0)), entMes.length + " pedidos entregues"],
+    ["Lucro no mês", brl(entMes.reduce((s, p) => s + luc(p), 0)), "depois de todos os custos"],
+    ["A receber", brl(receber.reduce((s, p) => s + tot(p), 0)), receber.length + " prontos ou entregues sem pagamento"],
+    ["Compras no mês", brl(compMes.reduce((s, b) => s + num(b.valor) + num(b.frete), 0)), n2(kg, 2) + " kg de filamento em estoque"]
+  ];
+  $("#p-kpis").innerHTML = k.map(x => `<div class="kpi"><span class="eyebrow">${x[0]}</span><span class="v">${x[1]}</span><span class="d">${x[2]}</span></div>`).join("");
+  const prox = ped.filter(p => ABERTOS.has(p.status) && p.status !== "orc").sort((a, b) => (a.entrega || "9999").localeCompare(b.entrega || "9999")).slice(0, 6);
+  const hoje = today();
+  $("#p-entregas").innerHTML = !prox.length ? `<div class="empty"><b>Nada em produção</b>Pedidos aprovados aparecem aqui por data de entrega.</div>` :
+    `<div class="list-min">` + prox.map(p => `<div><span><span class="t1" style="font-weight:600">${esc(p.cliente)}</span><br><span style="color:var(--muted);font-size:12px">${esc(p.desc)}</span></span><span style="text-align:right"><span class="pill s-${p.status}">${STATUS_LBL[p.status]}</span><br><span class="num" style="font-size:12px;${p.entrega && p.entrega < hoje ? "color:var(--bad);font-weight:600" : "color:var(--muted)"}">${fmtDate(p.entrega)}</span></span></div>`).join("") + `</div>`;
+  const est = estoque().sort((a, b) => a.saldo - b.saldo).slice(0, 6);
+  $("#p-estoque").innerHTML = !est.length ? `<div class="empty"><b>Sem compras de filamento</b>Registre seus rolos para ver o saldo e o custo médio por kg.</div>` :
+    `<div class="list-min">` + est.map(e => `<div><span><span class="swatch" style="background:${corCss(e.cor)}"></span>${esc(e.marca)} ${esc(e.material)} <span style="color:var(--muted)">${esc(e.cor)}</span></span><span class="num" style="${e.saldo < 250 ? "color:var(--bad);font-weight:600" : ""}">${n2(e.saldo / 1000, 2)} kg</span></div>`).join("") + `</div>`;
+}
+
+/* ---------- config ---------- */
+const CFG_IDS = ["impVal", "impRes", "vida", "bicoVal", "bicoVida", "manMes", "horasMes", "watts", "tarifa", "sal", "enc", "hTrab", "precoKg", "falha", "margem", "taxa", "moMin", "emb", "arred"];
+function fillConfigForm() { const c = cfg(); CFG_IDS.forEach(k => { const el = $("#k-" + k); if (el && document.activeElement !== el) el.value = c[k]; }); cfgDerived(); }
+function readConfigForm() { const c = {}; CFG_IDS.forEach(k => { const el = $("#k-" + k); c[k] = k === "arred" ? el.value : num(el.value); }); return c; }
+function cfgDerived() {
+  const r = rates({ ...DEFAULTS, ...readConfigForm() });
+  $("#kd-dep").textContent = brl(r.dep) + "/h";
+  $("#kd-man").textContent = brl(r.man) + "/h";
+  $("#kd-en").textContent = brl(r.en) + "/h";
+  $("#kd-mo").textContent = brl(r.mo) + "/h";
+  $("#kd-hora").textContent = brl(r.dep + r.man + r.en) + "/h";
+}
+CFG_IDS.forEach(k => $("#k-" + k).addEventListener("input", cfgDerived));
+$("#k-save").addEventListener("click", () => saveConfig({ ...DEFAULTS, ...readConfigForm() }));
+$("#k-export").addEventListener("click", async () => {
+  const data = JSON.stringify({ app: "Oficina A1", exportado: new Date().toISOString(), ...state }, null, 2);
+  const name = `oficina-a1-backup-${today()}.json`;
+  try {
+    const dl = window.claude?.use ? await window.claude.use("downloads") : null;
+    if (dl) { await dl.save({ filename: name, data }); $("#k-backup-msg").textContent = "Backup gerado."; return; }
+  } catch (e) { if (e && e.code === "declined") return; }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name; a.click(); $("#k-backup-msg").textContent = "Backup gerado."; }
+  catch (e) { $("#k-backup-msg").textContent = "Não foi possível baixar o arquivo aqui."; }
+});
+$("#k-import").addEventListener("change", async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const d = JSON.parse(await file.text());
+    const ps = Array.isArray(d.pedidos) ? d.pedidos : [], cs = Array.isArray(d.compras) ? d.compras : [];
+    for (const p of ps) if (p && p.id) await saveDoc("pedidos", p);
+    for (const c of cs) if (c && c.id) await saveDoc("compras", c);
+    if (d.config) await saveConfig({ ...DEFAULTS, ...d.config });
+    $("#k-backup-msg").textContent = `Restaurado: ${ps.length} pedidos e ${cs.length} compras.`;
+  } catch (err) { $("#k-backup-msg").textContent = "Arquivo inválido. Use um backup gerado por este app."; }
+  e.target.value = "";
+});
+
+/* ---------- render ---------- */
+function renderAll() {
+  renderPanel(); renderOrders(); renderBuys();
+  const sel = $("#c-mat"); const cur = sel.value; sel.innerHTML = matOptions(cur);
+  calcUpdate();
+}
+lsLoad();
+fillConfigForm();
+calcReset();
+try { const t = localStorage.getItem(LS + ".tab"); if (t && $("#v-" + t)) go(t); } catch (e) {}
+initStore();
+})();
+</script>
+</body></html>
