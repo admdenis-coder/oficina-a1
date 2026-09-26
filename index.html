@@ -253,8 +253,8 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 <section class="view" id="v-compras" hidden>
   <div class="head-row">
     <div><div class="eyebrow">Insumos</div><h2>Compras e estoque</h2>
-    <p class="sub">Cada compra de filamento entra no estoque. O consumo sai automaticamente quando um pedido passa para Imprimindo, Pronto ou Entregue.</p></div>
-    <div class="actions"><button class="btn pri" id="b-new">+ Registrar compra</button></div>
+    <p class="sub">Cada compra de filamento entra no estoque. O consumo sai automaticamente quando um pedido passa para Imprimindo, Pronto ou Entregue. Para lançar uma nota fiscal, importe o PDF (DANFE) ou o XML e confira os itens antes de salvar.</p></div>
+    <div class="actions"><label class="btn" for="b-xml">Importar nota fiscal (PDF ou XML)</label><input type="file" id="b-xml" accept=".pdf,.xml,application/pdf,text/xml,application/xml" multiple hidden><button class="btn pri" id="b-new">+ Registrar compra</button></div>
   </div>
   <div id="b-form-slot"></div>
   <div class="panel"><div class="panel-h"><h3>Estoque de filamento</h3><span class="eyebrow">custo médio inclui frete</span></div><div class="tbl-wrap" id="b-estoque"></div></div>
@@ -711,6 +711,196 @@ function openBuyForm(b) {
   slot.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 $("#b-new").addEventListener("click", () => openBuyForm());
+
+/* ---------- importação de NF-e (XML) ---------- */
+const MAT_RX = [["PETG", /\bPETG\b/i], ["ABS", /\bABS\b/i], ["ASA", /\bASA\b/i], ["TPU", /\bTPU\b|FLEX/i], ["Nylon", /NYLON/i], ["PLA Silk", /\bPLA\W*SILK|\bSILK\b/i], ["PLA Matte", /\bPLA\W*MAT(T)?E|\bMATTE\b/i], ["PLA", /\bPLA\b|\bPLA\+/i]];
+const CORES = ["preto", "branco", "cinza", "vermelho", "azul", "verde", "amarelo", "laranja", "rosa", "roxo", "lilas", "marrom", "bege", "dourado", "ouro", "prata", "transparente", "natural", "bronze", "cobre", "pele", "vinho"];
+const MARCA_RX = [["Maxprint", /MAX\s*PRINT/i], ["Voltz 3D", /VOLTZ/i], ["Multifila 3D", /MULTI\s*FILA/i], ["Bambu Lab", /BAMBU/i], ["3D Fila", /3D\s*FILA/i], ["Sunlu", /SUNLU/i], ["eSun", /ESUN/i], ["Creality", /CREALITY/i], ["Voolt3D", /VOOLT/i], ["GTMax3D", /GTMAX/i], ["3D Lab", /3D\s*LAB/i]];
+const semAcento = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "");
+function tx(el, name) { const n = el && el.getElementsByTagNameNS("*", name)[0]; return n ? n.textContent.trim() : ""; }
+function classificar(nome, fornecedor, un, q) {
+  const n0 = semAcento(nome);
+  const mat = (MAT_RX.find(([, rx]) => rx.test(n0)) || [])[0] || "";
+  const fil = !!mat || /FILAMENTO/i.test(n0);
+  const marca = (MARCA_RX.find(([, rx]) => rx.test(n0)) || MARCA_RX.find(([, rx]) => rx.test(semAcento(fornecedor))) || [])[0] || "";
+  const corW = CORES.find(c => new RegExp("\\b" + c + "\\b", "i").test(n0));
+  const cor = corW ? corW[0].toUpperCase() + corW.slice(1) : "";
+  let qtd = q || 1, peso = 1000, pesoDoNome = false;
+  const m = n0.match(/(\d+(?:[.,]\d+)?)\s*(KG|G)\b/i);
+  if (m) { peso = num(m[1]) * (m[2].toUpperCase() === "KG" ? 1000 : 1); pesoDoNome = true; }
+  un = (un || "").toUpperCase();
+  if (un === "KG" || un === "KILO" || un === "QUILO") { peso = 1000; qtd = q; pesoDoNome = true; }
+  if (un === "G" || un === "GR") { peso = q; qtd = 1; pesoDoNome = true; }
+  return { fil, tipo: fil ? "Filamento" : "Outro", marca, material: mat || (fil ? "PLA" : ""), cor, qtd: Math.round(qtd * 1000) / 1000, peso: Math.round(peso), pesoDoNome };
+}
+function lerNFe(xmlText) {
+  const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+  if (doc.getElementsByTagName("parsererror").length) throw new Error("XML inválido");
+  const inf = doc.getElementsByTagNameNS("*", "infNFe")[0];
+  if (!inf) throw new Error("Não parece uma NF-e (falta infNFe)");
+  const ide = inf.getElementsByTagNameNS("*", "ide")[0], emit = inf.getElementsByTagNameNS("*", "emit")[0];
+  const tot = inf.getElementsByTagNameNS("*", "ICMSTot")[0];
+  const chave = (inf.getAttribute("Id") || "").replace(/^NFe/, "");
+  const data = (tx(ide, "dhEmi") || tx(ide, "dEmi")).slice(0, 10) || today();
+  const fornecedor = tx(emit, "xFant") || tx(emit, "xNome");
+  const numero = tx(ide, "nNF");
+  const freteTotal = num(tx(tot, "vFrete"));
+  const dets = [...inf.getElementsByTagNameNS("*", "det")];
+  const itens = dets.map(d => {
+    const p = d.getElementsByTagNameNS("*", "prod")[0];
+    const nome = tx(p, "xProd"), un = tx(p, "uCom").toUpperCase(), q = num(tx(p, "qCom"));
+    const vProd = num(tx(p, "vProd")), vDesc = num(tx(p, "vDesc")), vOutro = num(tx(p, "vOutro")), vIpi = num(tx(d.getElementsByTagNameNS("*", "IPI")[0], "vIPI"));
+    const vFreteItem = num(tx(p, "vFrete"));
+    const c = classificar(nome, fornecedor, un, q);
+    return { nome, ...c, valor: Math.round((vProd - vDesc + vOutro + vIpi) * 100) / 100, vProd, vFreteItem };
+  });
+  const somaProd = itens.reduce((s, i) => s + i.vProd, 0) || 1;
+  const temFreteItem = itens.some(i => i.vFreteItem > 0);
+  itens.forEach(i => { i.frete = Math.round((temFreteItem ? i.vFreteItem : freteTotal * i.vProd / somaProd) * 100) / 100; });
+  return { chave, numero, data, fornecedor, itens };
+}
+
+/* ---------- importação de DANFE (PDF) ---------- */
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+function carregarScript(src) { return new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error("Não consegui carregar o leitor de PDF. Verifique a internet.")); document.head.appendChild(s); }); }
+async function pdfLib() {
+  if (!window.pdfjsLib) { await carregarScript(PDFJS + "pdf.min.js"); }
+  if (!window.pdfjsWorker) { await carregarScript(PDFJS + "pdf.worker.min.js"); }
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js";
+  return window.pdfjsLib;
+}
+async function textoDoPdf(buf) {
+  const lib = await pdfLib();
+  const doc = await lib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise;
+  const paginas = [];
+  for (let i = 1; i <= doc.numPages; i++) {
+    const pg = await doc.getPage(i); const c = await pg.getTextContent();
+    paginas.push(c.items.filter(it => it.str && it.str.trim()).map(it => ({ x: it.transform[4], y: it.transform[5], s: it.str.trim() })));
+  }
+  return paginas;
+}
+const brNum = s => { const t = String(s || "").replace(/[^\d,.-]/g, ""); if (!t) return NaN; return parseFloat(t.replace(/\./g, "").replace(",", ".")); };
+const ehNum = s => /^-?[\d.]*\d(,\d+)?$/.test(String(s).trim());
+function lerDanfe(paginas) {
+  const todos = paginas.flat();
+  if (!todos.length) throw new Error("O PDF não tem texto (parece escaneado ou foto). Peça a nota em PDF original ou o XML.");
+  const texto = paginas.map(p => { const ls = {}; p.forEach(it => { const y = Math.round(it.y / 2) * 2; (ls[y] = ls[y] || []).push(it); }); return Object.keys(ls).sort((a, b) => b - a).map(y => ls[y].sort((a, b) => a.x - b.x).map(i => i.s).join(" ")).join("\n"); }).join("\n");
+  const T = semAcento(texto).toUpperCase();
+  if (!/DANFE|NOTA FISCAL/.test(T)) throw new Error("Não parece uma DANFE (nota fiscal eletrônica).");
+  // valor logo abaixo de um rótulo, dentro da mesma "caixa"
+  const abaixo = (pg, rx, validar = ehNum) => {
+    const lbl = pg.find(it => rx.test(semAcento(it.s).toUpperCase())); if (!lbl) return "";
+    const mesmaLinha = pg.filter(it => Math.abs(it.y - lbl.y) < 3 && it.x > lbl.x + 2).sort((a, b) => a.x - b.x);
+    const fim = mesmaLinha.length ? mesmaLinha[0].x - 2 : lbl.x + 200;
+    const cand = pg.filter(it => it.y < lbl.y - 2 && it.y > lbl.y - 22 && it.x >= lbl.x - 4 && it.x < fim && validar(it.s)).sort((a, b) => b.y - a.y);
+    return cand.length ? cand[0].s : "";
+  };
+  const p0 = paginas.find(p => p.length) || [];
+  const chaveM = texto.replace(/\s/g, "").match(/\d{44}/);
+  const numM = texto.match(/N[ºo°]\.?\s*:?\s*(\d{3}\.\d{3}\.\d{3}|\d{1,9})/i);
+  let fornecedor = (texto.match(/RECEBEMOS DE\s+(.+?)\s+OS PRODUTOS/i) || [])[1] || "";
+  const dataS = abaixo(p0, /DATA DA EMISS|DATA DE EMISS/, s => /\d{2}\/\d{2}\/\d{4}/.test(s)) || (texto.match(/\d{2}\/\d{2}\/\d{4}/) || [""])[0];
+  const data = dataS ? dataS.match(/(\d{2})\/(\d{2})\/(\d{4})/).slice(1).reverse().join("-") : today();
+  const tot = rx => { for (const pg of paginas) { const v = brNum(abaixo(pg, rx)); if (isFinite(v)) return v; } return 0; };
+  const frete = tot(/^VALOR DO FRETE/), desc = tot(/^DESCONTO$|^VALOR DO DESCONTO/), outras = tot(/OUTRAS DESPESAS/), ipi = tot(/^VALOR (TOTAL )?DO IPI/);
+  const pesoLiq = tot(/PESO LIQUIDO/);
+  // tabela de produtos
+  const itens = [];
+  for (const pg of paginas) {
+    const ncmH = pg.find(it => /^NCM/.test(semAcento(it.s).toUpperCase())); if (!ncmH) continue;
+    const head = pg.filter(it => Math.abs(it.y - ncmH.y) <= 9).sort((a, b) => a.x - b.x);
+    const col = rx => head.find(it => rx.test(semAcento(it.s).toUpperCase()));
+    const cQtd = col(/^QTD|^QUANT/), cUnit = col(/UNIT/), cTot = col(/^V(A)?L(O)?R\.? ?TOTAL|^V\. ?TOTAL|^TOTAL$/), cUn = col(/^UN(ID)?\.?$|^UNID|^UN\b/), cDesc = col(/DESCONTO|^V\.? ?DESC/);
+    const fimTab = Math.max(...[/CALCULO DO ISSQN/, /DADOS ADICIONAIS/].map(rx => (pg.find(it => rx.test(semAcento(it.s).toUpperCase())) || { y: -1 }).y));
+    const topo = Math.min(...head.map(h => h.y)) - 1;
+    const naTab = pg.filter(it => it.y < topo && it.y > fimTab + 3 && !/CALCULO DO ISSQN|DADOS ADICIONAIS/.test(semAcento(it.s).toUpperCase()));
+    const colunaDe = it => head.filter(h => h.x <= it.x + 6).pop();
+    const ancoras = naTab.filter(it => /^\d{8}$/.test(it.s.replace(/\D/g, "")) && it.s.replace(/\D/g, "").length === 8 && Math.abs(it.x - ncmH.x) < 30).sort((a, b) => b.y - a.y);
+    ancoras.forEach((a, i) => {
+      const cima = i === 0 ? topo : (ancoras[i - 1].y + a.y) / 2, baixo = i === ancoras.length - 1 ? fimTab : (a.y + ancoras[i + 1].y) / 2;
+      const faixa = naTab.filter(it => it.y <= cima && it.y > baixo);
+      const nome = faixa.filter(it => it.x < ncmH.x - 2).sort((p, q) => (q.y - p.y) || (p.x - q.x)).map(it => it.s).join(" ").replace(/\s+/g, " ").trim();
+      const linha = naTab.filter(it => Math.abs(it.y - a.y) < 3 && it.x > ncmH.x);
+      const pega = c => { if (!c) return NaN; const it = linha.find(it => colunaDe(it) === c && ehNum(it.s)); return it ? brNum(it.s) : NaN; };
+      const un = cUn ? ((linha.find(it => colunaDe(it) === cUn) || {}).s || "") : "";
+      let q = pega(cQtd), vt = pega(cTot), vu = pega(cUnit);
+      if (!isFinite(vt) && isFinite(q) && isFinite(vu)) vt = q * vu;
+      if (!isFinite(q) && isFinite(vt) && isFinite(vu) && vu > 0) q = vt / vu;
+      const d = pega(cDesc);
+      itens.push({ nome: nome || "Item sem descrição", un, q: isFinite(q) ? q : 1, vProd: isFinite(vt) ? vt : 0, vDesc: isFinite(d) ? d : 0 });
+    });
+  }
+  if (!itens.length) throw new Error("Não encontrei a tabela de produtos na nota. Lance essa compra manualmente.");
+  const somaProd = itens.reduce((s, i) => s + i.vProd, 0) || 1;
+  const descItens = itens.some(i => i.vDesc > 0);
+  const out = itens.map(i => {
+    const c = classificar(i.nome, fornecedor, i.un, i.q);
+    const part = i.vProd / somaProd;
+    const valor = i.vProd - (descItens ? i.vDesc : desc * part) + (outras + ipi) * part;
+    return { nome: i.nome, ...c, valor: Math.round(valor * 100) / 100, frete: Math.round(frete * part * 100) / 100 };
+  });
+  const fils = out.filter(o => o.fil);
+  if (fils.length === 1 && !fils[0].pesoDoNome && pesoLiq > 0 && fils[0].qtd > 0) { const g = Math.round(pesoLiq * 1000 / fils[0].qtd); if (g >= 100 && g <= 5000) fils[0].peso = g; }
+  return { chave: chaveM ? chaveM[0] : "", numero: numM ? numM[1] : "", data, fornecedor: fornecedor.trim(), itens: out };
+}
+$("#b-xml").addEventListener("change", async e => {
+  const files = [...e.target.files]; e.target.value = ""; if (!files.length) return;
+  const notas = [], erros = [];
+  toast("Lendo " + (files.length > 1 ? files.length + " notas…" : "a nota…"));
+  for (const f of files) {
+    try {
+      const pdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
+      notas.push(pdf ? lerDanfe(await textoDoPdf(await f.arrayBuffer())) : lerNFe(await f.text()));
+    } catch (err) { erros.push(`${f.name}: ${err.message}`); }
+  }
+  go("compras"); abrirConferencia(notas, erros);
+});
+function abrirConferencia(notas, erros) {
+  const slot = $("#b-form-slot");
+  const linhas = [];
+  notas.forEach((n, ni) => n.itens.forEach((it, ii) => linhas.push({ ...it, ni, ii, nota: n })));
+  const dup = new Set(state.compras.map(c => c.nfeChave).filter(Boolean));
+  const opt = (arr, v) => arr.map(x => `<option ${x === v ? "selected" : ""}>${x}</option>`).join("");
+  slot.innerHTML = `<form class="drawer" id="x-form">
+    <div class="panel-h"><h3>Conferir nota${notas.length > 1 ? "s" : ""} antes de lançar</h3><button type="button" class="btn ghost sm" id="xf-close">Fechar</button></div>
+    <div class="panel-b" style="display:grid;gap:12px">
+      ${erros.length ? `<div class="note" style="color:var(--bad)">${erros.map(esc).join("<br>")}</div>` : ""}
+      ${notas.map(n => `<div class="note"><b>NF ${esc(n.numero)}</b> · ${esc(n.fornecedor)} · ${fmtDate(n.data)} · ${n.itens.length} ${n.itens.length === 1 ? "item" : "itens"}${dup.has(n.chave) && n.chave ? ` · <b style="color:var(--bad)">esta nota já foi importada</b>` : ""}</div>`).join("")}
+      ${linhas.length ? `<p class="sub" style="margin:0">Confira marca, material, cor e peso do rolo. O frete da nota foi dividido entre os itens pelo valor de cada um.</p>
+      <div class="tbl-wrap"><table class="list" style="min-width:980px"><thead><tr><th></th><th>Item da nota</th><th>Tipo</th><th>Marca</th><th>Material</th><th>Cor</th><th class="r">Qtd</th><th class="r">g/rolo</th><th class="r">Valor</th><th class="r">Frete</th></tr></thead><tbody>
+      ${linhas.map((l, i) => `<tr data-i="${i}">
+        <td><input type="checkbox" data-k="on" ${dup.has(l.nota.chave) && l.nota.chave ? "" : "checked"} aria-label="Lançar"></td>
+        <td style="max-width:240px"><div class="t2" style="color:var(--ink)">${esc(l.nome)}</div></td>
+        <td><select data-k="tipo" style="min-width:130px">${opt(TIPOS, l.tipo)}</select></td>
+        <td><input data-k="marca" list="dl-marcas" value="${esc(l.marca)}" style="min-width:110px"></td>
+        <td><input data-k="material" list="dl-mat" value="${esc(l.material)}" style="min-width:90px"></td>
+        <td><input data-k="cor" value="${esc(l.cor)}" style="min-width:90px"></td>
+        <td><input data-k="qtd" type="number" step="1" value="${l.qtd}" style="width:70px"></td>
+        <td><input data-k="peso" type="number" step="50" value="${l.peso}" style="width:80px"></td>
+        <td><input data-k="valor" type="number" step="0.01" value="${l.valor}" style="width:95px"></td>
+        <td><input data-k="frete" type="number" step="0.01" value="${l.frete}" style="width:80px"></td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="empty"><b>Nenhum item encontrado</b>Confira se o arquivo é a nota fiscal (DANFE em PDF ou XML da NF-e).</div>`}
+      <div class="actions">${linhas.length ? `<button class="btn pri" type="submit">Lançar compras marcadas</button>` : ""}<span class="t2" id="xf-msg" style="color:var(--muted);font-size:12px"></span></div>
+    </div></form>
+    <datalist id="dl-marcas">${MARCAS.map(m => `<option value="${m}">`).join("")}</datalist>
+    <datalist id="dl-mat">${MATERIAIS.map(m => `<option value="${m}">`).join("")}</datalist>`;
+  $("#xf-close").addEventListener("click", () => slot.innerHTML = "");
+  const f = $("#x-form");
+  f.addEventListener("submit", async e => {
+    e.preventDefault();
+    let n = 0;
+    for (const tr of f.querySelectorAll("tr[data-i]")) {
+      const g = k => tr.querySelector(`[data-k="${k}"]`);
+      if (!g("on").checked) continue;
+      const l = linhas[+tr.dataset.i];
+      const tipo = g("tipo").value;
+      await saveDoc("compras", { id: uid("c"), data: l.nota.data, tipo, marca: g("marca").value.trim(), material: g("material").value.trim(), cor: g("cor").value.trim(), desc: tipo === "Filamento" ? "" : l.nome, qtd: num(g("qtd").value), peso: num(g("peso").value), valor: num(g("valor").value), frete: num(g("frete").value), fornecedor: `${l.nota.fornecedor} · NF ${l.nota.numero}`, nfeChave: l.nota.chave, origem: "xml" });
+      n++;
+    }
+    slot.innerHTML = ""; toast(n ? `${n} ${n === 1 ? "compra lançada" : "compras lançadas"} da nota` : "Nenhum item marcado");
+  });
+  slot.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 function corCss(c) {
   const m = { preto: "#1b1b1b", branco: "#f4f4f4", vermelho: "#d0312d", azul: "#2c5fd1", verde: "#2e8b57", amarelo: "#f2c230", laranja: "#f07b1f", cinza: "#8a8f94", rosa: "#e97ab0", roxo: "#7b4fc4", marrom: "#7a4e2d", bege: "#d8c3a0", dourado: "#c9a33b", prata: "#b8bcc2" };
   const k = (c || "").toLowerCase().split(/\s+/)[0]; return m[k] || "transparent";
