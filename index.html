@@ -144,6 +144,9 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 .refs{display:grid;gap:10px;font-size:13px}
 .refs a{color:var(--accent)}
 .refs li{margin-bottom:6px}
+.login{position:fixed;inset:0;z-index:40;background:var(--bg);display:grid;place-items:center;padding:16px}
+.login-box{width:100%;max-width:380px;padding:24px;display:grid;gap:12px}
+.sync .btn{padding:2px 8px;font-size:11px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:600;font-size:13px;z-index:50;box-shadow:var(--shadow)}
 .confirm{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--bad)}
 .derived{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);padding:6px 10px;background:var(--surface-2);border-radius:6px}
@@ -334,6 +337,17 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
   </div></div>
 </section>
 </main>
+<div class="login" id="login" hidden>
+  <form class="login-box panel" id="login-form" autocomplete="on">
+    <div class="eyebrow">Oficina A1</div>
+    <h2>Entrar</h2>
+    <p class="sub" style="margin:0">Use o e-mail e a senha cadastrados no Supabase para ver os pedidos e compras compartilhados.</p>
+    <label class="f">E-mail<input id="lg-email" type="email" autocomplete="username" required></label>
+    <label class="f">Senha<input id="lg-senha" type="password" autocomplete="current-password" required></label>
+    <button class="btn pri" type="submit" id="lg-btn">Entrar</button>
+    <span id="lg-msg" style="font-size:12px;color:var(--bad)"></span>
+  </form>
+</div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -362,6 +376,11 @@ const COLORS = ["var(--accent)","var(--info)","var(--warn)","#7C5CC4","var(--pri
 const state = { pedidos: [], compras: [], config: { ...DEFAULTS } };
 let db = null, mode = "local";
 const LS = "oficinaA1.v1";
+/* Supabase (versão do site): preencha para compartilhar os dados entre computadores */
+const SB_URL = "https://tcoxhdwmhdnbpthpjfxl.supabase.co";
+const SB_KEY = "sb_publishable_m2wLrhM6vt4N857EJpMZSA_GTWG8d59";
+const SB_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js";
+let sb = null, sbUser = null;
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -382,6 +401,7 @@ function lsSave() { try { localStorage.setItem(LS, JSON.stringify(state)); } cat
 function setSync() {
   const el = $("#sync");
   if (mode === "db") el.innerHTML = '<span class="dot on"></span><span>salvo na nuvem</span>';
+  else if (mode === "sb") { el.innerHTML = `<span class="dot on"></span><span>nuvem · ${esc(sbUser || "")}</span><button class="btn ghost" id="sb-sair" type="button">Sair</button>`; $("#sb-sair").onclick = async () => { await sb.auth.signOut(); location.reload(); }; }
   else el.innerHTML = '<span class="dot local"></span><span>salvo neste navegador</span>';
 }
 async function saveDoc(col, obj) {
@@ -389,23 +409,26 @@ async function saveDoc(col, obj) {
   if (i >= 0) arr[i] = obj; else arr.push(obj);
   renderAll();
   if (mode === "db") { try { await db.collection(col).doc(obj.id).set(obj); } catch (e) { toast("Não consegui salvar: " + (e.message || e.code)); } }
+  else if (mode === "sb") { const { error } = await sb.from("oficina_docs").upsert({ col, id: obj.id, data: obj, updated_at: new Date().toISOString() }); if (error) toast("Não consegui salvar: " + error.message); }
   else lsSave();
 }
 async function delDoc(col, id) {
   state[col] = state[col].filter(x => x.id !== id); renderAll();
   if (mode === "db") { try { await db.collection(col).doc(id).delete(); } catch (e) { toast("Não consegui excluir: " + (e.message || e.code)); } }
+  else if (mode === "sb") { const { error } = await sb.from("oficina_docs").delete().eq("col", col).eq("id", id); if (error) toast("Não consegui excluir: " + error.message); }
   else lsSave();
 }
 async function saveConfig(c) {
   state.config = c; renderAll(); fillConfigForm();
   if (mode === "db") { try { await db.doc("config/geral").set(c); } catch (e) { toast("Não consegui salvar: " + (e.message || e.code)); return; } }
+  else if (mode === "sb") { const { error } = await sb.from("oficina_docs").upsert({ col: "config", id: "geral", data: c, updated_at: new Date().toISOString() }); if (error) { toast("Não consegui salvar: " + error.message); return; } }
   else lsSave();
   toast("Parâmetros salvos");
 }
 async function initStore() {
   setSync(); renderAll();
   try {
-    if (!window.claude || !window.claude.use) return;
+    if (!window.claude || !window.claude.use) { if (SB_URL && SB_KEY) await initSupabase(); return; }
     const d = await window.claude.use("db");
     if (!d) return;
     db = d; mode = "db"; setSync();
@@ -424,6 +447,52 @@ async function initStore() {
     });
     db.doc("config/geral").onSnapshot(s => { if (s.exists) { state.config = { ...DEFAULTS, ...s.data() }; renderAll(); fillConfigForm(); } });
   } catch (e) { mode = "local"; setSync(); }
+}
+
+/* ---------- Supabase ---------- */
+async function initSupabase() {
+  await carregarScript(SB_JS);
+  sb = window.supabase.createClient(SB_URL, SB_KEY);
+  const { data } = await sb.auth.getSession();
+  if (data && data.session) return iniciarNuvem(data.session);
+  $("#login").hidden = false; $("#lg-email").focus();
+  $("#login-form").onsubmit = async e => {
+    e.preventDefault(); $("#lg-btn").disabled = true; $("#lg-msg").textContent = "";
+    const { data: d, error } = await sb.auth.signInWithPassword({ email: $("#lg-email").value.trim(), password: $("#lg-senha").value });
+    $("#lg-btn").disabled = false;
+    if (error) { $("#lg-msg").textContent = /invalid/i.test(error.message) ? "E-mail ou senha incorretos." : error.message; return; }
+    $("#login").hidden = true; iniciarNuvem(d.session);
+  };
+}
+function aplicarLinha(r) {
+  if (r.col === "config") { state.config = { ...DEFAULTS, ...r.data }; return; }
+  if (!state[r.col]) return;
+  const arr = state[r.col]; const i = arr.findIndex(x => x.id === r.id);
+  if (i >= 0) arr[i] = r.data; else arr.push(r.data);
+}
+async function iniciarNuvem(session) {
+  sbUser = session.user && session.user.email; mode = "sb"; setSync();
+  const local = { pedidos: state.pedidos.slice(), compras: state.compras.slice(), config: state.config };
+  let linhas = [], de = 0;
+  while (true) {
+    const { data, error } = await sb.from("oficina_docs").select("col,id,data").range(de, de + 999);
+    if (error) { toast("Erro ao ler a nuvem: " + error.message); return; }
+    linhas = linhas.concat(data); if (data.length < 1000) break; de += 1000;
+  }
+  state.pedidos = []; state.compras = []; state.config = { ...DEFAULTS };
+  linhas.forEach(aplicarLinha);
+  // primeira vez: a nuvem está vazia e este navegador tem dados, então envia tudo
+  if (!linhas.length && (local.pedidos.length || local.compras.length)) {
+    const rows = [...local.pedidos.map(o => ({ col: "pedidos", id: o.id, data: o })), ...local.compras.map(o => ({ col: "compras", id: o.id, data: o })), { col: "config", id: "geral", data: local.config }];
+    const { error } = await sb.from("oficina_docs").upsert(rows);
+    if (!error) { state.pedidos = local.pedidos; state.compras = local.compras; state.config = local.config; toast("Os dados deste navegador foram enviados para a nuvem"); }
+  }
+  renderAll(); fillConfigForm();
+  sb.channel("oficina").on("postgres_changes", { event: "*", schema: "public", table: "oficina_docs" }, ev => {
+    if (ev.eventType === "DELETE") { const o = ev.old || {}; if (state[o.col] && o.col !== "config") state[o.col] = state[o.col].filter(x => x.id !== o.id); }
+    else aplicarLinha(ev.new);
+    renderAll(); if (ev.new && ev.new.col === "config") fillConfigForm();
+  }).subscribe();
 }
 
 /* ---------- cálculo ---------- */
@@ -786,7 +855,7 @@ function lerNFe(xmlText) {
 
 /* ---------- importação de DANFE (PDF) ---------- */
 const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
-function carregarScript(src) { return new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error("Não consegui carregar o leitor de PDF. Verifique a internet.")); document.head.appendChild(s); }); }
+function carregarScript(src) { return new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => no(new Error("Não consegui carregar um componente do app. Verifique a internet.")); document.head.appendChild(s); }); }
 async function pdfLib() {
   if (!window.pdfjsLib) { await carregarScript(PDFJS + "pdf.min.js"); }
   if (!window.pdfjsWorker) { await carregarScript(PDFJS + "pdf.worker.min.js"); }
