@@ -980,9 +980,9 @@ $("#k-export").addEventListener("click", async () => {
   const name = `oficina-a1-backup-${today()}.json`;
   try {
     const dl = window.claude?.use ? await window.claude.use("downloads") : null;
-    if (dl) { await dl.save({ filename: name, data }); $("#k-backup-msg").textContent = "Backup gerado."; return; }
+    if (dl) { await dl.save({ filename: name, data }); $("#k-backup-msg").textContent = `Backup gerado com ${state.pedidos.length} pedidos e ${state.compras.length} compras.`; return; }
   } catch (e) { if (e && e.code === "declined") return; }
-  try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name; a.click(); $("#k-backup-msg").textContent = "Backup gerado."; }
+  try { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([data], { type: "application/json" })); a.download = name; a.click(); $("#k-backup-msg").textContent = `Backup gerado com ${state.pedidos.length} pedidos e ${state.compras.length} compras.`; }
   catch (e) { $("#k-backup-msg").textContent = "Não foi possível baixar o arquivo aqui."; }
 });
 $("#k-import").addEventListener("change", async e => {
@@ -993,7 +993,8 @@ $("#k-import").addEventListener("change", async e => {
     for (const p of ps) if (p && p.id) await saveDoc("pedidos", p);
     for (const c of cs) if (c && c.id) await saveDoc("compras", c);
     if (d.config) await saveConfig({ ...DEFAULTS, ...d.config });
-    $("#k-backup-msg").textContent = `Restaurado: ${ps.length} pedidos e ${cs.length} compras.`;
+    const msg = ps.length || cs.length ? `Restaurado: ${ps.length} pedidos e ${cs.length} compras.` : "Esse backup está vazio (0 pedidos e 0 compras). Gere o backup no mesmo link onde você lançou os dados.";
+    $("#k-backup-msg").textContent = msg; toast(msg);
   } catch (err) { $("#k-backup-msg").textContent = "Arquivo inválido. Use um backup gerado por este app."; }
   e.target.value = "";
 });
