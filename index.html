@@ -199,6 +199,9 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
   </div>
   <div class="calc">
     <div class="panel"><div class="panel-b">
+      <fieldset class="fs"><legend>Pedido</legend>
+        <label class="f">Ver o custo de um pedido cadastrado<select id="c-pedido"></select><span class="hint">escolha um pedido para ver o custo separado dele; mudanças aqui não alteram o pedido</span></label>
+      </fieldset>
       <fieldset class="fs"><legend>Peça</legend>
         <div class="fields">
           <label class="f" style="grid-column:1/-1">Descrição da peça<input id="c-desc" placeholder="Ex.: Suporte de celular articulado"></label>
@@ -232,6 +235,8 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
         <div class="big" id="r-preco"></div>
         <div class="row"><span>Lucro líquido por peça</span><b id="r-lucro"></b></div>
         <div class="row"><span>Markup sobre o custo</span><b id="r-markup"></b></div>
+        <div class="row" id="r-cob-row" hidden><span>Preço cobrado no pedido</span><b id="r-cob"></b></div>
+        <div class="row" id="r-lreal-row" hidden><span>Lucro real por peça (preço cobrado)</span><b id="r-lreal"></b></div>
         <div class="row" id="r-total-row"><span>Total do pedido</span><b id="r-total"></b></div>
       </div>
       <div>
@@ -598,8 +603,24 @@ document.addEventListener("click", e => {
 
 /* ---------- calculadora ---------- */
 const CALC_IDS = ["desc", "h", "min", "qtd", "mo", "outros", "margem", "taxa"];
+function pedidoSel() { const id = $("#c-pedido").value; return id ? state.pedidos.find(p => p.id === id) : null; }
+function fillPedidoSelect() {
+  const sel = $("#c-pedido"), cur = sel.value;
+  const list = state.pedidos.slice().sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+  sel.innerHTML = `<option value="">Nova peça (sem pedido)</option>` + list.map(p => `<option value="${esc(p.id)}">${esc(p.cliente)} · ${esc(p.desc)} · ${fmtDate(p.data)} · ${STATUS_LBL[p.status] || ""}</option>`).join("");
+  sel.value = list.some(p => p.id === cur) ? cur : "";
+  $("#c-to-pedido").textContent = sel.value ? "Abrir este pedido" : "Criar pedido com este preço";
+}
+function carregarPedido(p) {
+  $("#c-desc").value = p.desc || "";
+  montarMats($("#c-mats"), matsDe(p).map(m => ({ ...m })), calcUpdate);
+  $("#c-h").value = num(p.h); $("#c-min").value = num(p.min); $("#c-qtd").value = Math.max(1, num(p.qtd || 1));
+  $("#c-mo").value = num(p.moMin); $("#c-outros").value = num(p.outros); $("#c-margem").value = num(p.margem); $("#c-taxa").value = num(p.taxa);
+  calcUpdate();
+}
+$("#c-pedido").addEventListener("change", () => { const p = pedidoSel(); if (p) carregarPedido(p); else calcReset(); fillPedidoSelect(); });
 function calcReset() {
-  const c = cfg();
+  const c = cfg(); $("#c-pedido").value = ""; $("#c-to-pedido").textContent = "Criar pedido com este preço";
   $("#c-desc").value = ""; montarMats($("#c-mats"), [{ matKey: "", precoKg: c.precoKg, g: 44 }], calcUpdate);
   $("#c-h").value = 3; $("#c-min").value = 30; $("#c-qtd").value = 1;
   $("#c-mo").value = c.moMin; $("#c-outros").value = c.emb; $("#c-margem").value = c.margem; $("#c-taxa").value = c.taxa;
@@ -629,6 +650,14 @@ function calcUpdate() {
   $("#r-markup").textContent = ok ? n2(r.markup * 100, 0) + "%" : "—";
   $("#r-total-row").hidden = qtd <= 1;
   $("#r-total").textContent = ok ? `${qtd} × ${brl(r.preco)} = ${brl(r.preco * qtd)}` : "—";
+  const ped = pedidoSel(), cob = ped ? num(ped.preco) : 0;
+  $("#r-cob-row").hidden = $("#r-lreal-row").hidden = !(ped && cob > 0);
+  if (ped && cob > 0) {
+    const lr = cob * (1 - num(inp.taxa) / 100) - r.custo;
+    $("#r-cob").textContent = qtd > 1 ? `${brl(cob)} (total ${brl(cob * qtd)})` : brl(cob);
+    $("#r-lreal").textContent = qtd > 1 ? `${brl(lr)} (total ${brl(lr * qtd)})` : brl(lr);
+    $("#r-lreal").style.color = lr < 0 ? "var(--bad)" : "";
+  }
   const cur = num(inp.margem);
   const ms = [...new Set([30, 40, 50, 60, 70, cur])].sort((a, b) => a - b);
   $("#r-mt").innerHTML = `<tr><th>Margem</th><th>Preço</th><th>Lucro</th><th>Markup</th></tr>` + ms.map(m => {
@@ -640,6 +669,8 @@ CALC_IDS.forEach(id => $("#c-" + id).addEventListener("input", calcUpdate));
 $("#c-reset").addEventListener("click", calcReset);
 $("#c-to-pedido").addEventListener("click", () => {
   const r = calcular(calcInput());
+  const ped = pedidoSel();
+  if (ped) { go("pedidos"); openOrderForm(ped); return; }
   go("pedidos");
   openOrderForm({
     desc: $("#c-desc").value, mats: $("#c-mats").read(),
@@ -1094,7 +1125,7 @@ $("#k-import").addEventListener("change", async e => {
 
 /* ---------- render ---------- */
 function renderAll() {
-  renderPanel(); renderOrders(); renderBuys();
+  renderPanel(); renderOrders(); renderBuys(); fillPedidoSelect();
   if ($("#c-mats").refresh) $("#c-mats").refresh();
   calcUpdate();
 }
