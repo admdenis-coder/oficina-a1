@@ -148,6 +148,11 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 .confirm{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--bad)}
 .derived{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);padding:6px 10px;background:var(--surface-2);border-radius:6px}
 .derived b{font-family:var(--mono);color:var(--ink)}
+.mats{display:grid;gap:8px}
+.mat-row{display:grid;grid-template-columns:18px minmax(0,1fr) 120px 96px 32px;gap:8px;align-items:center}
+.mat-n{font:600 11px var(--mono);color:var(--faint);text-align:center}
+.mats .btn[data-m="add"]{justify-self:start}
+@media (max-width:560px){.mat-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}.mat-n{display:none}.mat-row select{grid-column:1/-1}}
 .list-min{display:grid;gap:0}
 .list-min > div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2);align-items:center}
 .list-min > div:last-child{border-bottom:0}
@@ -194,9 +199,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
       <fieldset class="fs"><legend>Peça</legend>
         <div class="fields">
           <label class="f" style="grid-column:1/-1">Descrição da peça<input id="c-desc" placeholder="Ex.: Suporte de celular articulado"></label>
-          <label class="f" style="grid-column:1/-1">Filamento<select id="c-mat"></select></label>
-          <label class="f" id="c-precokg-w">Preço do filamento<div class="unit"><input id="c-precokg" type="number" step="0.01" min="0"><span>R$/kg</span></div></label>
-          <label class="f">Filamento usado<div class="unit"><input id="c-g" type="number" step="0.1" min="0"><span>g</span></div><span class="hint">incluindo suportes e purga</span></label>
+          <div class="mats" id="c-mats" style="grid-column:1/-1"></div>
           <label class="f">Tempo de impressão<div class="unit"><input id="c-h" type="number" step="1" min="0"><span>h</span></div></label>
           <label class="f">&nbsp;<div class="unit"><input id="c-min" type="number" step="1" min="0" max="59" aria-label="minutos"><span>min</span></div></label>
           <label class="f">Quantidade<div class="unit"><input id="c-qtd" type="number" step="1" min="1"><span>un</span></div></label>
@@ -394,7 +397,7 @@ async function delDoc(col, id) {
   else lsSave();
 }
 async function saveConfig(c) {
-  state.config = c; renderAll();
+  state.config = c; renderAll(); fillConfigForm();
   if (mode === "db") { try { await db.doc("config/geral").set(c); } catch (e) { toast("Não consegui salvar: " + (e.message || e.code)); return; } }
   else lsSave();
   toast("Parâmetros salvos");
@@ -445,7 +448,9 @@ function precoDe(custo, margemPct, taxaPct, c = cfg()) {
 function calcular(inp, c = cfg()) {
   const r = rates(c);
   const h = num(inp.h) + num(inp.min) / 60;
-  const fil = num(inp.g) * num(inp.precoKg) / 1000;
+  const mats = inp.mats && inp.mats.length ? inp.mats : [{ g: inp.g, precoKg: inp.precoKg }];
+  const gTot = mats.reduce((s, m) => s + num(m.g), 0);
+  const fil = mats.reduce((s, m) => s + num(m.g) * num(m.precoKg) / 1000, 0);
   const energia = h * r.en, dep = h * r.dep, man = h * r.man;
   const falha = (fil + energia + dep + man) * num(c.falha) / 100;
   const mo = num(inp.moMin) / 60 * r.mo;
@@ -453,7 +458,7 @@ function calcular(inp, c = cfg()) {
   const custo = fil + energia + dep + man + falha + mo + outros;
   const preco = precoDe(custo, num(inp.margem), num(inp.taxa), c);
   const lucro = preco * (1 - num(inp.taxa) / 100) - custo;
-  return { h, fil, energia, dep, man, falha, mo, outros, custo, preco, lucro, markup: custo > 0 ? (preco / custo - 1) : 0 };
+  return { h, gTot, nCores: mats.length, fil, energia, dep, man, falha, mo, outros, custo, preco, lucro, markup: custo > 0 ? (preco / custo - 1) : 0 };
 }
 
 /* ---------- estoque ---------- */
@@ -469,9 +474,11 @@ function estoque() {
     map.set(k, e);
   }
   for (const p of state.pedidos) {
-    if (!CONSUMIDO.has(p.status) || !p.matKey) continue;
-    const e = map.get(p.matKey); if (!e) continue;
-    e.usado += num(p.g) * num(p.qtd || 1) * (1 + num(cfg().falha) / 100);
+    if (!CONSUMIDO.has(p.status)) continue;
+    for (const m of matsDe(p)) {
+      const e = map.get(m.matKey); if (!e) continue;
+      e.usado += num(m.g) * num(p.qtd || 1) * (1 + num(cfg().falha) / 100);
+    }
   }
   return [...map.values()].map(e => ({ ...e, saldo: e.g - e.usado, precoKg: e.g > 0 ? e.gasto / e.g * 1000 : 0 }))
     .sort((a, b) => a.key.localeCompare(b.key));
@@ -481,6 +488,28 @@ function matOptions(sel) {
   let h = `<option value="">Preço manual (sem estoque)</option>`;
   for (const e of est) h += `<option value="${esc(e.key)}" ${e.key === sel ? "selected" : ""}>${esc(e.marca)} ${esc(e.material)} ${esc(e.cor)} · ${brl(e.precoKg)}/kg · ${n2(e.saldo / 1000, 2)} kg</option>`;
   return h;
+}
+function matsDe(p) { return p.mats && p.mats.length ? p.mats : [{ matKey: p.matKey || "", precoKg: p.precoKg ?? cfg().precoKg, g: num(p.g) }]; }
+function matRowHtml(m, i) {
+  return `<div class="mat-row" data-i="${i}"><span class="mat-n">${i + 1}</span>
+    <select data-m="key" aria-label="Filamento ${i + 1}">${matOptions(m.matKey)}</select>
+    <div class="unit"><input data-m="precoKg" type="number" step="0.01" min="0" value="${m.precoKg}" aria-label="Preço do filamento ${i + 1}"><span>R$/kg</span></div>
+    <div class="unit"><input data-m="g" type="number" step="0.1" min="0" value="${m.g}" aria-label="Gramas do filamento ${i + 1}"><span>g</span></div>
+    <button type="button" class="btn sm ghost danger" data-m="del" aria-label="Remover cor ${i + 1}" ${i === 0 ? "style=\"visibility:hidden\"" : ""}>✕</button></div>`;
+}
+function montarMats(box, mats, onChange) {
+  const read = () => [...box.querySelectorAll(".mat-row")].map(r => ({ matKey: r.querySelector('[data-m="key"]').value, precoKg: num(r.querySelector('[data-m="precoKg"]').value), g: num(r.querySelector('[data-m="g"]').value) }));
+  const sync = () => box.querySelectorAll(".mat-row").forEach(r => { const k = r.querySelector('[data-m="key"]').value, pk = r.querySelector('[data-m="precoKg"]'); if (k) { const v = precoKgDe(k); if (v != null) pk.value = v.toFixed(2); } pk.readOnly = !!k; });
+  const draw = () => {
+    box.innerHTML = `<div class="f" style="display:grid;gap:2px;font-size:12px;font-weight:500;color:var(--muted)">Filamentos da peça<span class="hint" style="font-weight:400;color:var(--faint);font-size:11px">Até 4 cores (AMS Lite). Use os gramas de cada cor que o Bambu Studio mostra, já com suportes e purga.</span></div>`
+      + mats.map(matRowHtml).join("") + (mats.length < 4 ? `<button type="button" class="btn sm" data-m="add">+ Adicionar cor</button>` : "");
+    sync();
+  };
+  const changed = e => { if (e.target.closest("[data-m]")) { sync(); mats = read(); onChange(); } };
+  box.oninput = changed; box.onchange = changed;
+  box.onclick = e => { const b = e.target.closest("button[data-m]"); if (!b) return; mats = read(); if (b.dataset.m === "add") mats.push({ matKey: "", precoKg: cfg().precoKg, g: 0 }); else mats.splice(+b.closest(".mat-row").dataset.i, 1); draw(); onChange(); };
+  box.read = read; box.refresh = () => { mats = read(); draw(); };
+  draw();
 }
 function precoKgDe(key) { const e = estoque().find(x => x.key === key); return e ? e.precoKg : null; }
 
@@ -499,25 +528,22 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- calculadora ---------- */
-const CALC_IDS = ["desc", "mat", "precokg", "g", "h", "min", "qtd", "mo", "outros", "margem", "taxa"];
+const CALC_IDS = ["desc", "h", "min", "qtd", "mo", "outros", "margem", "taxa"];
 function calcReset() {
   const c = cfg();
-  $("#c-desc").value = ""; $("#c-mat").innerHTML = matOptions(""); $("#c-precokg").value = c.precoKg;
-  $("#c-g").value = 44; $("#c-h").value = 3; $("#c-min").value = 30; $("#c-qtd").value = 1;
+  $("#c-desc").value = ""; montarMats($("#c-mats"), [{ matKey: "", precoKg: c.precoKg, g: 44 }], calcUpdate);
+  $("#c-h").value = 3; $("#c-min").value = 30; $("#c-qtd").value = 1;
   $("#c-mo").value = c.moMin; $("#c-outros").value = c.emb; $("#c-margem").value = c.margem; $("#c-taxa").value = c.taxa;
   calcUpdate();
 }
 function calcInput() {
-  return { g: $("#c-g").value, h: $("#c-h").value, min: $("#c-min").value, precoKg: $("#c-precokg").value, moMin: $("#c-mo").value, outros: $("#c-outros").value, margem: $("#c-margem").value, taxa: $("#c-taxa").value };
+  return { mats: $("#c-mats").read(), h: $("#c-h").value, min: $("#c-min").value, moMin: $("#c-mo").value, outros: $("#c-outros").value, margem: $("#c-margem").value, taxa: $("#c-taxa").value };
 }
 function calcUpdate() {
-  const matSel = $("#c-mat").value;
-  if (matSel) { const p = precoKgDe(matSel); if (p != null) $("#c-precokg").value = p.toFixed(2); }
-  $("#c-precokg").readOnly = !!matSel;
   const inp = calcInput(), r = calcular(inp), c = cfg(), rt = rates(c);
   const qtd = Math.max(1, Math.round(num($("#c-qtd").value)));
   const parts = [
-    ["Filamento", r.fil, `${n2(num(inp.g), 1)} g × ${brl(num(inp.precoKg))}/kg`],
+    ["Filamento", r.fil, r.nCores > 1 ? `${r.nCores} cores · ${n2(r.gTot, 1)} g no total` : `${n2(r.gTot, 1)} g × ${brl(num(inp.mats[0].precoKg))}/kg`],
     ["Energia", r.energia, `${n2(r.h, 2)} h × ${n2(c.watts, 0)} W × ${brl(c.tarifa)}/kWh`],
     ["Depreciação da A1", r.dep, `${n2(r.h, 2)} h × ${brl(rt.dep)}/h`],
     ["Desgaste e manutenção", r.man, `${n2(r.h, 2)} h × ${brl(rt.man)}/h`],
@@ -547,7 +573,7 @@ $("#c-to-pedido").addEventListener("click", () => {
   const r = calcular(calcInput());
   go("pedidos");
   openOrderForm({
-    desc: $("#c-desc").value, matKey: $("#c-mat").value, precoKg: num($("#c-precokg").value), g: num($("#c-g").value),
+    desc: $("#c-desc").value, mats: $("#c-mats").read(),
     h: num($("#c-h").value), min: num($("#c-min").value), qtd: Math.max(1, Math.round(num($("#c-qtd").value))),
     moMin: num($("#c-mo").value), outros: num($("#c-outros").value), margem: num($("#c-margem").value), taxa: num($("#c-taxa").value),
     preco: isFinite(r.preco) ? r.preco : 0, status: "orc"
@@ -558,7 +584,7 @@ $("#c-to-pedido").addEventListener("click", () => {
 let oFilter = "abertos";
 function openOrderForm(p) {
   const c = cfg(); const isNew = !p || !p.id;
-  p = { id: "", cliente: "", contato: "", desc: "", matKey: "", precoKg: c.precoKg, g: 0, h: 0, min: 0, qtd: 1, moMin: c.moMin, outros: c.emb, margem: c.margem, taxa: c.taxa, preco: 0, status: "orc", entrega: "", pago: false, obs: "", data: today(), ...(p || {}) };
+  p = { id: "", cliente: "", contato: "", desc: "", h: 0, min: 0, qtd: 1, moMin: c.moMin, outros: c.emb, margem: c.margem, taxa: c.taxa, preco: 0, status: "orc", entrega: "", pago: false, obs: "", data: today(), ...(p || {}) };
   const slot = $("#o-form-slot");
   slot.innerHTML = `<form class="drawer" id="o-form" autocomplete="off">
     <div class="panel-h"><h3>${isNew ? "Novo pedido" : "Editar pedido"}</h3><button type="button" class="btn ghost sm" id="of-close">Fechar</button></div>
@@ -571,9 +597,7 @@ function openOrderForm(p) {
     </div></fieldset>
     <fieldset class="fs"><legend>Peça</legend><div class="fields">
       <label class="f" style="grid-column:1/-1">Descrição<input id="of-desc" required value="${esc(p.desc)}" placeholder="Ex.: 10 chaveiros personalizados"></label>
-      <label class="f" style="grid-column:1/-1">Filamento<select id="of-mat">${matOptions(p.matKey)}</select></label>
-      <label class="f">Preço do filamento<div class="unit"><input id="of-precoKg" type="number" step="0.01" value="${p.precoKg}"><span>R$/kg</span></div></label>
-      <label class="f">Filamento por peça<div class="unit"><input id="of-g" type="number" step="0.1" value="${p.g}"><span>g</span></div></label>
+      <div class="mats" id="of-mats" style="grid-column:1/-1"></div>
       <label class="f">Tempo por peça<div class="unit"><input id="of-h" type="number" step="1" min="0" value="${p.h}"><span>h</span></div></label>
       <label class="f">&nbsp;<div class="unit"><input id="of-min" type="number" step="1" min="0" max="59" value="${p.min}" aria-label="minutos"><span>min</span></div></label>
       <label class="f">Quantidade<div class="unit"><input id="of-qtd" type="number" step="1" min="1" value="${p.qtd}"><span>un</span></div></label>
@@ -592,11 +616,10 @@ function openOrderForm(p) {
     </div></form>`;
   const f = $("#o-form");
   const read = () => ({
-    matKey: $("#of-mat").value, precoKg: num($("#of-precoKg").value), g: num($("#of-g").value), h: num($("#of-h").value), min: num($("#of-min").value),
+    mats: $("#of-mats").read(), h: num($("#of-h").value), min: num($("#of-min").value),
     qtd: Math.max(1, Math.round(num($("#of-qtd").value))), moMin: num($("#of-mo").value), outros: num($("#of-outros").value), margem: num($("#of-margem").value), taxa: num($("#of-taxa").value)
   });
   const upd = () => {
-    const m = $("#of-mat").value; if (m) { const pk = precoKgDe(m); if (pk != null) $("#of-precoKg").value = pk.toFixed(2); }
     const x = read(); const r = calcular(x);
     $("#of-sug").textContent = `sugerido ${isFinite(r.preco) ? brl(r.preco) : "—"} · custo ${brl(r.custo)}`;
     const pr = num($("#of-preco").value);
@@ -604,6 +627,7 @@ function openOrderForm(p) {
     $("#of-resumo").textContent = pr > 0 ? `Total ${brl(pr * x.qtd)} · lucro ${brl(lucro * x.qtd)}` : "";
     return r;
   };
+  montarMats($("#of-mats"), matsDe(p).map(m => ({ ...m })), () => upd());
   f.addEventListener("input", upd); upd();
   if (!p.preco) { const r = upd(); if (isFinite(r.preco)) { $("#of-preco").value = r.preco.toFixed(2); upd(); } }
   $("#of-usar").addEventListener("click", () => { const r = upd(); if (isFinite(r.preco)) { $("#of-preco").value = r.preco.toFixed(2); upd(); } });
@@ -611,7 +635,7 @@ function openOrderForm(p) {
   f.addEventListener("submit", e => {
     e.preventDefault();
     const x = read(); const r = calcular(x);
-    const obj = { ...p, ...x, id: p.id || uid("p"), cliente: $("#of-cliente").value.trim(), contato: $("#of-contato").value.trim(), data: $("#of-data").value, entrega: $("#of-entrega").value, desc: $("#of-desc").value.trim(), preco: num($("#of-preco").value), status: $("#of-status").value, pago: $("#of-pago").checked, obs: $("#of-obs").value, custo: r.custo, atualizado: new Date().toISOString() };
+    const obj = { ...p, ...x, matKey: x.mats[0].matKey, precoKg: x.mats[0].precoKg, g: r.gTot, id: p.id || uid("p"), cliente: $("#of-cliente").value.trim(), contato: $("#of-contato").value.trim(), data: $("#of-data").value, entrega: $("#of-entrega").value, desc: $("#of-desc").value.trim(), preco: num($("#of-preco").value), status: $("#of-status").value, pago: $("#of-pago").checked, obs: $("#of-obs").value, custo: r.custo, atualizado: new Date().toISOString() };
     saveDoc("pedidos", obj); slot.innerHTML = ""; toast(isNew ? "Pedido salvo" : "Pedido atualizado");
   });
   slot.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -642,7 +666,7 @@ function renderOrders() {
       const q = num(p.qtd || 1), tot = num(p.preco) * q, luc = (num(p.preco) * (1 - num(p.taxa) / 100) - num(p.custo)) * q;
       const atras = p.entrega && p.entrega < hoje && ABERTOS.has(p.status);
       return `<tr data-id="${esc(p.id)}">
-        <td><div class="t1">${esc(p.cliente)}</div><div class="t2">${esc(p.desc)}${p.contato ? " · " + esc(p.contato) : ""}</div></td>
+        <td><div class="t1">${esc(p.cliente)}</div><div class="t2">${esc(p.desc)}${matsDe(p).length > 1 ? ` · ${matsDe(p).length} cores` : ""}${p.contato ? " · " + esc(p.contato) : ""}</div></td>
         <td class="num" style="${atras ? "color:var(--bad);font-weight:600" : ""}">${fmtDate(p.entrega)}${atras ? "<div class='t2' style='color:var(--bad)'>atrasado</div>" : ""}</td>
         <td><select class="status" data-act="status" aria-label="Status">${STATUS.map(([k, l]) => `<option value="${k}" ${k === p.status ? "selected" : ""}>${l}</option>`).join("")}</select></td>
         <td class="r num">${q}</td><td class="r num">${brl(tot)}</td>
@@ -1002,7 +1026,7 @@ $("#k-import").addEventListener("change", async e => {
 /* ---------- render ---------- */
 function renderAll() {
   renderPanel(); renderOrders(); renderBuys();
-  const sel = $("#c-mat"); const cur = sel.value; sel.innerHTML = matOptions(cur);
+  if ($("#c-mats").refresh) $("#c-mats").refresh();
   calcUpdate();
 }
 lsLoad();
