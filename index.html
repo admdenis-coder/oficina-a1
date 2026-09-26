@@ -208,10 +208,11 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
           <div class="mats" id="c-mats" style="grid-column:1/-1"></div>
           <label class="f">Tempo de impressão<div class="unit"><input id="c-h" type="number" step="1" min="0"><span>h</span></div></label>
           <label class="f">&nbsp;<div class="unit"><input id="c-min" type="number" step="1" min="0" max="59" aria-label="minutos"><span>min</span></div></label>
-          <label class="f">Quantidade<div class="unit"><input id="c-qtd" type="number" step="1" min="1"><span>un</span></div></label>
+          <label class="f">Peças por impressão<div class="unit"><input id="c-pmesa" type="number" step="1" min="1"><span>un</span></div><span class="hint">quantas peças saem juntas na mesa</span></label>
+          <label class="f">Quantidade total<div class="unit"><input id="c-qtd" type="number" step="1" min="1"><span>un</span></div><span class="hint">peças do pedido</span></label>
         </div>
       </fieldset>
-      <fieldset class="fs"><legend>Trabalho e extras (por peça)</legend>
+      <fieldset class="fs"><legend>Trabalho e extras (por impressão)</legend>
         <div class="fields">
           <label class="f">Trabalho manual<div class="unit"><input id="c-mo" type="number" step="1" min="0"><span>min</span></div><span class="hint">fatiar, retirar, lixar, embalar</span></label>
           <label class="f">Embalagem e outros<div class="unit"><input id="c-outros" type="number" step="0.01" min="0"><span>R$</span></div></label>
@@ -526,14 +527,16 @@ function calcular(inp, c = cfg()) {
   const mats = inp.mats && inp.mats.length ? inp.mats : [{ g: inp.g, precoKg: inp.precoKg }];
   const gTot = mats.reduce((s, m) => s + num(m.g), 0);
   const fil = mats.reduce((s, m) => s + num(m.g) * num(m.precoKg) / 1000, 0);
-  const energia = h * r.en, dep = h * r.dep, man = h * r.man;
-  const falha = (fil + energia + dep + man) * num(c.falha) / 100;
-  const mo = num(inp.moMin) / 60 * r.mo;
-  const outros = num(inp.outros);
-  const custo = fil + energia + dep + man + falha + mo + outros;
+  // peso, tempo, trabalho e extras são da impressão inteira; divide pelas peças da mesa
+  const n = Math.max(1, Math.round(num(inp.pmesa) || 1));
+  const filP = fil / n, energia = h * r.en / n, dep = h * r.dep / n, man = h * r.man / n;
+  const falha = (filP + energia + dep + man) * num(c.falha) / 100;
+  const mo = num(inp.moMin) / 60 * r.mo / n;
+  const outros = num(inp.outros) / n;
+  const custo = filP + energia + dep + man + falha + mo + outros;
   const preco = precoDe(custo, num(inp.margem), num(inp.taxa), c);
   const lucro = preco * (1 - num(inp.taxa) / 100) - custo;
-  return { h, gTot, nCores: mats.length, fil, energia, dep, man, falha, mo, outros, custo, preco, lucro, markup: custo > 0 ? (preco / custo - 1) : 0 };
+  return { h, n, gTot, nCores: mats.length, fil: filP, energia, dep, man, falha, mo, outros, custo, preco, lucro, markup: custo > 0 ? (preco / custo - 1) : 0 };
 }
 
 /* ---------- estoque ---------- */
@@ -552,7 +555,7 @@ function estoque() {
     if (!CONSUMIDO.has(p.status) || p.origem) continue;
     for (const m of matsDe(p)) {
       const e = map.get(m.matKey); if (!e) continue;
-      e.usado += num(m.g) * num(p.qtd || 1) * (1 + num(cfg().falha) / 100);
+      e.usado += num(m.g) / Math.max(1, num(p.pmesa) || 1) * num(p.qtd || 1) * (1 + num(cfg().falha) / 100);
     }
   }
   return [...map.values()].map(e => ({ ...e, saldo: e.g - e.usado, precoKg: e.g > 0 ? e.gasto / e.g * 1000 : 0 }))
@@ -576,7 +579,7 @@ function montarMats(box, mats, onChange) {
   const read = () => [...box.querySelectorAll(".mat-row")].map(r => ({ matKey: r.querySelector('[data-m="key"]').value, precoKg: num(r.querySelector('[data-m="precoKg"]').value), g: num(r.querySelector('[data-m="g"]').value) }));
   const sync = () => box.querySelectorAll(".mat-row").forEach(r => { const k = r.querySelector('[data-m="key"]').value, pk = r.querySelector('[data-m="precoKg"]'); if (k) { const v = precoKgDe(k); if (v != null) pk.value = v.toFixed(2); } pk.readOnly = !!k; });
   const draw = () => {
-    box.innerHTML = `<div class="f" style="display:grid;gap:2px;font-size:12px;font-weight:500;color:var(--muted)">Filamentos da peça<span class="hint" style="font-weight:400;color:var(--faint);font-size:11px">Até 4 cores (AMS Lite). Use os gramas de cada cor que o Bambu Studio mostra, já com suportes e purga.</span></div>`
+    box.innerHTML = `<div class="f" style="display:grid;gap:2px;font-size:12px;font-weight:500;color:var(--muted)">Filamentos da peça<span class="hint" style="font-weight:400;color:var(--faint);font-size:11px">Até 4 cores (AMS Lite). Use os gramas de cada cor que o Bambu Studio mostra para a impressão inteira (todas as peças da mesa), já com suportes e purga.</span></div>`
       + mats.map(matRowHtml).join("") + (mats.length < 4 ? `<button type="button" class="btn sm" data-m="add">+ Adicionar cor</button>` : "");
     sync();
   };
@@ -603,7 +606,7 @@ document.addEventListener("click", e => {
 });
 
 /* ---------- calculadora ---------- */
-const CALC_IDS = ["desc", "h", "min", "qtd", "mo", "outros", "margem", "taxa"];
+const CALC_IDS = ["desc", "h", "min", "pmesa", "qtd", "mo", "outros", "margem", "taxa"];
 function pedidoSel() { const id = $("#c-pedido").value; return id ? state.pedidos.find(p => p.id === id) : null; }
 function fillPedidoSelect() {
   const sel = $("#c-pedido"), cur = sel.value;
@@ -615,7 +618,7 @@ function fillPedidoSelect() {
 function carregarPedido(p) {
   $("#c-desc").value = p.desc || "";
   montarMats($("#c-mats"), matsDe(p).map(m => ({ ...m })), calcUpdate);
-  $("#c-h").value = num(p.h); $("#c-min").value = num(p.min); $("#c-qtd").value = Math.max(1, num(p.qtd || 1));
+  $("#c-h").value = num(p.h); $("#c-min").value = num(p.min); $("#c-qtd").value = Math.max(1, num(p.qtd || 1)); $("#c-pmesa").value = Math.max(1, num(p.pmesa) || 1);
   $("#c-mo").value = num(p.moMin); $("#c-outros").value = num(p.outros); $("#c-margem").value = num(p.margem); $("#c-taxa").value = num(p.taxa);
   calcUpdate();
 }
@@ -623,24 +626,25 @@ $("#c-pedido").addEventListener("change", () => { const p = pedidoSel(); if (p) 
 function calcReset() {
   const c = cfg(); $("#c-pedido").value = ""; $("#c-to-pedido").textContent = "Criar pedido com este preço";
   $("#c-desc").value = ""; montarMats($("#c-mats"), [{ matKey: "", precoKg: c.precoKg, g: 44 }], calcUpdate);
-  $("#c-h").value = 3; $("#c-min").value = 30; $("#c-qtd").value = 1;
+  $("#c-h").value = 3; $("#c-min").value = 30; $("#c-qtd").value = 1; $("#c-pmesa").value = 1;
   $("#c-mo").value = c.moMin; $("#c-outros").value = c.emb; $("#c-margem").value = c.margem; $("#c-taxa").value = c.taxa;
   calcUpdate();
 }
 function calcInput() {
-  return { mats: $("#c-mats").read(), h: $("#c-h").value, min: $("#c-min").value, moMin: $("#c-mo").value, outros: $("#c-outros").value, margem: $("#c-margem").value, taxa: $("#c-taxa").value };
+  return { mats: $("#c-mats").read(), h: $("#c-h").value, min: $("#c-min").value, pmesa: $("#c-pmesa").value, moMin: $("#c-mo").value, outros: $("#c-outros").value, margem: $("#c-margem").value, taxa: $("#c-taxa").value };
 }
 function calcUpdate() {
   const inp = calcInput(), r = calcular(inp), c = cfg(), rt = rates(c);
   const qtd = Math.max(1, Math.round(num($("#c-qtd").value)));
+  const dv = r.n > 1 ? ` ÷ ${r.n} peças` : "";
   const parts = [
-    ["Filamento", r.fil, r.nCores > 1 ? `${r.nCores} cores · ${n2(r.gTot, 1)} g no total` : `${n2(r.gTot, 1)} g × ${brl(num(inp.mats[0].precoKg))}/kg`],
-    ["Energia", r.energia, `${n2(r.h, 2)} h × ${n2(c.watts, 0)} W × ${brl(c.tarifa)}/kWh`],
-    ["Depreciação da A1", r.dep, `${n2(r.h, 2)} h × ${brl(rt.dep)}/h`],
-    ["Desgaste e manutenção", r.man, `${n2(r.h, 2)} h × ${brl(rt.man)}/h`],
+    ["Filamento", r.fil, (r.nCores > 1 ? `${r.nCores} cores · ${n2(r.gTot, 1)} g no total` : `${n2(r.gTot, 1)} g × ${brl(num(inp.mats[0].precoKg))}/kg`) + dv],
+    ["Energia", r.energia, `${n2(r.h, 2)} h × ${n2(c.watts, 0)} W × ${brl(c.tarifa)}/kWh` + dv],
+    ["Depreciação da A1", r.dep, `${n2(r.h, 2)} h × ${brl(rt.dep)}/h` + dv],
+    ["Desgaste e manutenção", r.man, `${n2(r.h, 2)} h × ${brl(rt.man)}/h` + dv],
     ["Reserva para falhas", r.falha, `${n2(c.falha, 0)}% do custo de impressão`],
-    ["Mão de obra", r.mo, `${n2(num(inp.moMin), 0)} min × ${brl(rt.mo)}/h`],
-    ["Embalagem e outros", r.outros, "informado"]
+    ["Mão de obra", r.mo, `${n2(num(inp.moMin), 0)} min × ${brl(rt.mo)}/h` + dv],
+    ["Embalagem e outros", r.outros, r.n > 1 ? `${brl(num(inp.outros))}` + dv : "informado"]
   ];
   $("#r-stack").innerHTML = parts.map((p, i) => `<i style="width:${r.custo > 0 ? p[1] / r.custo * 100 : 0}%;background:${COLORS[i]}" title="${p[0]}"></i>`).join("");
   $("#r-bd").innerHTML = parts.map((p, i) => `<div class="bd-row"><span class="sw" style="background:${COLORS[i]}"></span><span class="lbl">${p[0]}<small>${p[2]}</small></span><span class="pct">${r.custo > 0 ? n2(p[1] / r.custo * 100, 0) : 0}%</span><span class="val">${brl(p[1])}</span></div>`).join("")
@@ -675,7 +679,7 @@ $("#c-to-pedido").addEventListener("click", () => {
   go("pedidos");
   openOrderForm({
     desc: $("#c-desc").value, mats: $("#c-mats").read(),
-    h: num($("#c-h").value), min: num($("#c-min").value), qtd: Math.max(1, Math.round(num($("#c-qtd").value))),
+    h: num($("#c-h").value), min: num($("#c-min").value), qtd: Math.max(1, Math.round(num($("#c-qtd").value))), pmesa: Math.max(1, Math.round(num($("#c-pmesa").value))),
     moMin: num($("#c-mo").value), outros: num($("#c-outros").value), margem: num($("#c-margem").value), taxa: num($("#c-taxa").value),
     preco: isFinite(r.preco) ? r.preco : 0, status: "orc"
   });
@@ -706,7 +710,7 @@ $("#o-pecas").addEventListener("click", e => {
   openOrderForm(vendaDoLote(l));
 });
 function vendaDoLote(l) {
-  return { desc: l.desc, mats: matsDe(l).map(m => ({ ...m })), h: l.h, min: l.min, qtd: 1, moMin: l.moMin, outros: l.outros, margem: l.margem, taxa: l.taxa, preco: num(l.preco), origem: l.id, status: "ent" };
+  return { desc: l.desc, mats: matsDe(l).map(m => ({ ...m })), h: l.h, min: l.min, pmesa: l.pmesa, qtd: 1, moMin: l.moMin, outros: l.outros, margem: l.margem, taxa: l.taxa, preco: num(l.preco), origem: l.id, status: "ent" };
 }
 
 /* ---------- pedidos ---------- */
@@ -732,11 +736,12 @@ function openOrderForm(p) {
       <label class="f" style="grid-column:1/-1">Descrição<input id="of-desc" required value="${esc(p.desc)}" placeholder="Ex.: 10 chaveiros personalizados"></label>
       <div class="mats prod" id="of-mats" style="grid-column:1/-1"></div>
       <div class="note" id="of-lote-note" style="grid-column:1/-1" hidden></div>
-      <label class="f prod">Tempo por peça<div class="unit"><input id="of-h" type="number" step="1" min="0" value="${p.h}"><span>h</span></div></label>
+      <label class="f prod">Tempo da impressão<div class="unit"><input id="of-h" type="number" step="1" min="0" value="${p.h}"><span>h</span></div></label>
       <label class="f prod">&nbsp;<div class="unit"><input id="of-min" type="number" step="1" min="0" max="59" value="${p.min}" aria-label="minutos"><span>min</span></div></label>
-      <label class="f">Quantidade<div class="unit"><input id="of-qtd" type="number" step="1" min="1" value="${p.qtd}"><span>un</span></div></label>
-      <label class="f prod">Trabalho manual/peça<div class="unit"><input id="of-mo" type="number" step="1" value="${p.moMin}"><span>min</span></div></label>
-      <label class="f prod">Embalagem e outros/peça<div class="unit"><input id="of-outros" type="number" step="0.01" value="${p.outros}"><span>R$</span></div></label>
+      <label class="f prod">Peças por impressão<div class="unit"><input id="of-pmesa" type="number" step="1" min="1" value="${num(p.pmesa) || 1}"><span>un</span></div><span class="hint">quantas saem juntas na mesa</span></label>
+      <label class="f">Quantidade total<div class="unit"><input id="of-qtd" type="number" step="1" min="1" value="${p.qtd}"><span>un</span></div></label>
+      <label class="f prod">Trabalho manual<div class="unit"><input id="of-mo" type="number" step="1" value="${p.moMin}"><span>min</span></div></label>
+      <label class="f prod">Embalagem e outros<div class="unit"><input id="of-outros" type="number" step="0.01" value="${p.outros}"><span>R$</span></div></label>
       <label class="f">Margem<div class="unit"><input id="of-margem" type="number" step="1" value="${p.margem}"><span>%</span></div></label>
       <label class="f">Taxa de venda<div class="unit"><input id="of-taxa" type="number" step="0.1" value="${p.taxa}"><span>%</span></div></label>
     </div></fieldset>
@@ -751,7 +756,7 @@ function openOrderForm(p) {
   const f = $("#o-form");
   const read = () => ({
     mats: $("#of-mats").read(), h: num($("#of-h").value), min: num($("#of-min").value),
-    qtd: Math.max(1, Math.round(num($("#of-qtd").value))), moMin: num($("#of-mo").value), outros: num($("#of-outros").value), margem: num($("#of-margem").value), taxa: num($("#of-taxa").value)
+    qtd: Math.max(1, Math.round(num($("#of-qtd").value))), pmesa: Math.max(1, Math.round(num($("#of-pmesa").value))), moMin: num($("#of-mo").value), outros: num($("#of-outros").value), margem: num($("#of-margem").value), taxa: num($("#of-taxa").value)
   });
   const lote = () => { const id = $("#of-origem").value; return id ? state.pedidos.find(o => o.id === id) : null; };
   const calcPed = x => { const l = lote(); if (!l) return calcular(x); const custo = num(l.custo); return { custo, preco: precoDe(custo, x.margem, x.taxa), gTot: 0 }; };
