@@ -875,7 +875,7 @@ function openOrderForm(p) {
     if (origem && !p.id) { const L = lote(); if (L) { x.mats = matsDe(L).map(m => ({ ...m })); } }
     const L0 = origem ? state.pedidos.find(o => o.id === origem) : null;
     const produtoId = L0 ? (L0.produtoId || "") : $("#of-prod").value;
-    const obj = { ...p, ...x, produtoId, estoque: est, origem, matKey: x.mats[0].matKey, precoKg: x.mats[0].precoKg, g: r.gTot, id: p.id || uid("p"), cliente: est ? ($("#of-cliente").value.trim() || "Estoque") : $("#of-cliente").value.trim(), contato: $("#of-contato").value.trim(), data: $("#of-data").value, entrega: $("#of-entrega").value, desc: $("#of-desc").value.trim(), preco: num($("#of-preco").value), status: $("#of-status").value, pago: $("#of-pago").checked, obs: $("#of-obs").value, custo: r.custo, atualizado: new Date().toISOString() };
+    const obj = { ...p, ...x, produtoId, estoque: est, origem, matKey: x.mats[0].matKey, precoKg: x.mats[0].precoKg, g: r.gTot, id: p.id || uid("p"), cliente: est ? "Estoque" : $("#of-cliente").value.trim(), contato: $("#of-contato").value.trim(), data: $("#of-data").value, entrega: $("#of-entrega").value, desc: $("#of-desc").value.trim(), preco: num($("#of-preco").value), status: $("#of-status").value, pago: $("#of-pago").checked, obs: $("#of-obs").value, custo: r.custo, atualizado: new Date().toISOString() };
     if (obj.status === "ent" && !obj.entregueEm) obj.entregueEm = today();
     saveDoc("pedidos", obj); if (!est) garantirCliente(obj.cliente, obj.contato);
     slot.innerHTML = ""; toast(isNew ? "Pedido salvo" : "Pedido atualizado");
@@ -885,16 +885,18 @@ function openOrderForm(p) {
 }
 $("#o-new").addEventListener("click", () => openOrderForm());
 $("#o-busca").addEventListener("input", renderOrders);
+const emAberto = p => ABERTOS.has(p.status) && !(p.estoque && (p.status === "pro" || p.status === "ent"));
+const noFiltro = (p, k) => k === "todos" ? true : k === "abertos" ? emAberto(p) : k === "lotes" ? !!p.estoque : p.status === k;
 function renderOrderFilters() {
-  const cnt = k => k === "abertos" ? state.pedidos.filter(p => ABERTOS.has(p.status)).length : k === "todos" ? state.pedidos.length : state.pedidos.filter(p => p.status === k).length;
-  const opts = [["abertos", "Em aberto"], ...STATUS, ["todos", "Todos"]];
+  const cnt = k => state.pedidos.filter(p => noFiltro(p, k)).length;
+  const opts = [["abertos", "Em aberto"], ...STATUS, ["lotes", "Lotes para estoque"], ["todos", "Todos"]];
   $("#o-filters").innerHTML = opts.map(([k, l]) => `<button class="chip" data-f="${k}" aria-pressed="${k === oFilter}">${l} <span class="num">${cnt(k)}</span></button>`).join("");
 }
 $("#o-filters").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; oFilter = b.dataset.f; renderOrders(); });
 function renderOrders() {
   renderOrderFilters();
   const q = $("#o-busca").value.trim().toLowerCase();
-  let list = state.pedidos.filter(p => oFilter === "todos" ? true : oFilter === "abertos" ? ABERTOS.has(p.status) : p.status === oFilter);
+  let list = state.pedidos.filter(p => noFiltro(p, oFilter));
   if (q) list = list.filter(p => (p.cliente + " " + p.desc + " " + (p.contato || "")).toLowerCase().includes(q));
   list.sort((a, b) => (a.entrega || "9999").localeCompare(b.entrega || "9999") || (b.data || "").localeCompare(a.data || ""));
   if (!list.length) {
@@ -907,15 +909,16 @@ function renderOrders() {
     list.map(p => {
       const q = num(p.qtd || 1), tot = p.estoque ? 0 : num(p.preco) * q, luc = p.estoque ? 0 : (num(p.preco) * (1 - num(p.taxa) / 100) - num(p.custo)) * q;
       const L = p.origem ? state.pedidos.find(o => o.id === p.origem) : null;
-      const atras = p.entrega && p.entrega < hoje && ABERTOS.has(p.status);
+      const atras = p.entrega && p.entrega < hoje && emAberto(p);
+      const LT = p.estoque ? lotes().find(l => l.id === p.id) : null;
       return `<tr data-id="${esc(p.id)}">
-        <td><div class="t1">${esc(p.cliente)}</div><div class="t2">${esc(p.desc)}${p.estoque ? " · <b>lote para estoque</b>" : ""}${L ? ` · do estoque (${esc(L.desc)})` : ""}${matsDe(p).length > 1 ? ` · ${matsDe(p).length} cores` : ""}${p.contato ? " · " + esc(p.contato) : ""}</div></td>
+        <td><div class="t1">${p.estoque ? "Lote para estoque" : esc(p.cliente)}</div><div class="t2">${esc(p.desc)}${p.estoque ? " · <b>lote para estoque</b>" : ""}${L ? ` · do estoque (${esc(L.desc)})` : ""}${matsDe(p).length > 1 ? ` · ${matsDe(p).length} cores` : ""}${p.contato ? " · " + esc(p.contato) : ""}</div></td>
         <td class="num" style="${atras ? "color:var(--bad);font-weight:600" : ""}">${fmtDate(p.entrega)}${atras ? "<div class='t2' style='color:var(--bad)'>atrasado</div>" : ""}</td>
         <td><select class="status" data-act="status" aria-label="Status">${STATUS.map(([k, l]) => `<option value="${k}" ${k === p.status ? "selected" : ""}>${l}</option>`).join("")}</select></td>
-        <td class="r num">${q}</td><td class="r num">${p.estoque ? "estoque" : brl(tot)}</td>
+        <td class="r num">${q}</td><td class="r num">${LT ? `<b>${n2(LT.saldo, 0)}</b> de ${n2(q, 0)} em estoque<div class="t2">${n2(LT.vend, 0)} vendida${LT.vend === 1 ? "" : "s"}</div>` : p.estoque ? "estoque" : brl(tot)}</td>
         <td class="r num" style="color:${luc < 0 ? "var(--bad)" : "var(--ok)"}">${p.estoque ? "—" : brl(luc)}</td>
-        <td><input type="checkbox" data-act="pago" ${p.pago ? "checked" : ""} aria-label="Pago"></td>
-        <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap">${p.estoque ? "" : `<button class="btn sm" data-act="orc">Orçamento</button>`}<button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button></span></td>
+        <td>${p.estoque ? "" : `<input type="checkbox" data-act="pago" ${p.pago ? "checked" : ""} aria-label="Pago">`}</td>
+        <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap">${p.estoque ? (LT && LT.saldo > 0 ? `<button class="btn sm" data-act="vender">Vender peça</button>` : "") : `<button class="btn sm" data-act="orc">Orçamento</button>`}<button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button></span></td>
       </tr>`;
     }).join("") + `</tbody></table>`;
 }
@@ -928,6 +931,7 @@ $("#o-list").addEventListener("click", e => {
   const b = e.target.closest("[data-act]"); if (!b) return; const tr = b.closest("tr[data-id]"); const p = state.pedidos.find(x => x.id === tr.dataset.id); if (!p) return;
   if (b.dataset.act === "edit") openOrderForm(p);
   if (b.dataset.act === "orc") abrirOrcamento(p);
+  if (b.dataset.act === "vender") openOrderForm(vendaDoLote(p));
   if (b.dataset.act === "del") inlineConfirm(b, () => { delDoc("pedidos", p.id); toast("Pedido excluído"); });
 });
 function inlineConfirm(btn, onYes) {
@@ -1228,7 +1232,7 @@ function renderPanel() {
     ["Compras no mês", brl(compMes.reduce((s, b) => s + num(b.valor) + num(b.frete), 0)), n2(kg, 2) + " kg de filamento em estoque"]
   ];
   $("#p-kpis").innerHTML = k.map(x => `<div class="kpi"><span class="eyebrow">${x[0]}</span><span class="v">${x[1]}</span><span class="d">${x[2]}</span></div>`).join("");
-  const prox = state.pedidos.filter(p => ABERTOS.has(p.status) && p.status !== "orc").sort((a, b) => (a.entrega || "9999").localeCompare(b.entrega || "9999")).slice(0, 6);
+  const prox = state.pedidos.filter(p => emAberto(p) && p.status !== "orc").sort((a, b) => (a.entrega || "9999").localeCompare(b.entrega || "9999")).slice(0, 6);
   const hoje = today();
   $("#p-entregas").innerHTML = !prox.length ? `<div class="empty"><b>Nada em produção</b>Pedidos aprovados aparecem aqui por data de entrega.</div>` :
     `<div class="list-min">` + prox.map(p => `<div><span><span class="t1" style="font-weight:600">${esc(p.cliente)}</span><br><span style="color:var(--muted);font-size:12px">${esc(p.desc)}</span></span><span style="text-align:right"><span class="pill s-${p.status}">${STATUS_LBL[p.status]}</span><br><span class="num" style="font-size:12px;${p.entrega && p.entrega < hoje ? "color:var(--bad);font-weight:600" : "color:var(--muted)"}">${fmtDate(p.entrega)}</span></span></div>`).join("") + `</div>`;
