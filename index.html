@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="description" content="Oficina A1: pedidos, compras de filamento e cálculo de custo e preço para impressão 3D na Bambu Lab A1"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><title>Oficina A1 · Gestão 3D</title>
+<!doctype html><html><head><meta charset="utf-8"><meta name="description" content="Personalizados da Débora: pedidos, produtos, clientes, compras de filamento e cálculo de custo e preço para impressão 3D"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><title>Personalizados da Débora · Gestão 3D</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -39,7 +39,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14p
 .wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:0 48px}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;background:var(--bg);border-bottom:1px solid var(--line);}
 .top-in{max-width:1180px;margin:0 auto;padding-inline:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px 0}
-.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;flex-wrap:wrap}
+.brand img{height:40px;width:auto;max-width:120px;object-fit:contain;border-radius:6px}
+.logo-box img{height:72px;max-width:180px;object-fit:contain;border-radius:8px;border:1px solid var(--line);background:#fff}
+.orc-doc img.logo{height:64px;max-width:160px;object-fit:contain;margin-bottom:6px}
 .brand h1{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:-.01em;margin:0}
 .brand small{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em}
 .sync{font-family:var(--mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
@@ -195,7 +198,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 
 <header class="top">
   <div class="top-in">
-    <div class="brand"><h1>Oficina A1</h1><small>IMPRESSÃO 3D · BAMBU LAB A1</small></div>
+    <div class="brand"><img id="brand-logo" alt="" hidden><h1 id="brand-nome">Personalizados da Débora</h1><small>IMPRESSÃO 3D · BAMBU LAB A1</small></div>
     <div class="sync" id="sync"><span class="dot"></span><span>carregando…</span></div>
     <nav class="tabs" role="tablist" aria-label="Seções">
       <button role="tab" data-tab="painel" aria-selected="true">Painel</button>
@@ -385,8 +388,9 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
     </div></div>
   </div>
   <div class="panel"><div class="panel-h"><h3>Orçamento e alertas</h3></div><div class="panel-b" style="display:grid;gap:12px">
+    <div class="f">Logo da empresa<div class="foto-box logo-box"><span id="k-logo-prev"></span><label class="btn sm" for="k-logo">Escolher logo</label><input type="file" id="k-logo" accept="image/*" hidden><button type="button" class="btn sm ghost" id="k-logo-del">Remover logo</button></div><span class="hint">aparece no topo do sistema e no orçamento; é salva na hora</span></div>
     <div class="fields">
-      <label class="f">Nome no orçamento<input id="k-nomeLoja" placeholder="Oficina A1"></label>
+      <label class="f">Nome da empresa<input id="k-nomeLoja" placeholder="Personalizados da Débora"></label>
       <label class="f">Seu WhatsApp ou contato<input id="k-foneLoja" placeholder="(64) 99999-0000"></label>
       <label class="f">Validade do orçamento<div class="unit"><input id="k-validadeOrc" type="number" step="1" min="1"><span>dias</span></div></label>
       <label class="f">Avisar filamento abaixo de<div class="unit"><input id="k-alertaG" type="number" step="50" min="0"><span>g</span></div></label>
@@ -412,7 +416,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 </main>
 <div class="login" id="login" hidden>
   <form class="login-box panel" id="login-form" autocomplete="on">
-    <div class="eyebrow">Oficina A1</div>
+    <div class="eyebrow" id="lg-nome">Personalizados da Débora</div>
     <h2>Entrar</h2>
     <p class="sub" style="margin:0">Use o e-mail e a senha cadastrados no Supabase para ver os pedidos e compras compartilhados.</p>
     <label class="f">E-mail<input id="lg-email" type="email" autocomplete="username" required></label>
@@ -434,7 +438,7 @@ const DEFAULTS = {
   watts: 95, tarifa: 0.95,
   sal: 2300, enc: 0, hTrab: 220,
   precoKg: 115, falha: 10, margem: 50, taxa: 0, moMin: 15, emb: 2, arred: "90",
-  nomeLoja: "Oficina A1", foneLoja: "", validadeOrc: 7, alertaG: 250, alertaPecas: 2
+  nomeLoja: "Personalizados da Débora", foneLoja: "", validadeOrc: 7, alertaG: 250, alertaPecas: 2
 };
 const STATUS = [
   ["orc","Orçamento"],["apr","Aprovado"],["imp","Imprimindo"],["pro","Pronto"],["ent","Entregue"],["can","Cancelado"]
@@ -1244,7 +1248,7 @@ function renderPanel() {
 /* ---------- config ---------- */
 const CFG_IDS = ["impVal", "impRes", "vida", "bicoVal", "bicoVida", "manMes", "horasMes", "watts", "tarifa", "sal", "enc", "hTrab", "precoKg", "falha", "margem", "taxa", "moMin", "emb", "arred", "nomeLoja", "foneLoja", "validadeOrc", "alertaG", "alertaPecas"];
 const CFG_TXT = new Set(["arred", "nomeLoja", "foneLoja"]);
-function fillConfigForm() { const c = cfg(); CFG_IDS.forEach(k => { const el = $("#k-" + k); if (el && document.activeElement !== el) el.value = c[k]; }); cfgDerived(); }
+function fillConfigForm() { const c = cfg(); CFG_IDS.forEach(k => { const el = $("#k-" + k); if (el && document.activeElement !== el) el.value = k === "nomeLoja" ? nomeEmpresa() : c[k]; }); cfgDerived(); }
 function readConfigForm() { const c = {}; CFG_IDS.forEach(k => { const el = $("#k-" + k); c[k] = CFG_TXT.has(k) ? el.value.trim() : num(el.value); }); return c; }
 function cfgDerived() {
   const r = rates({ ...DEFAULTS, ...readConfigForm() });
@@ -1255,7 +1259,7 @@ function cfgDerived() {
   $("#kd-hora").textContent = brl(r.dep + r.man + r.en) + "/h";
 }
 CFG_IDS.forEach(k => $("#k-" + k).addEventListener("input", cfgDerived));
-$("#k-save").addEventListener("click", () => saveConfig({ ...DEFAULTS, ...readConfigForm() }));
+$("#k-save").addEventListener("click", () => saveConfig({ ...cfg(), ...readConfigForm() }));
 $("#k-export").addEventListener("click", async () => {
   const data = JSON.stringify({ app: "Oficina A1", exportado: new Date().toISOString(), ...state }, null, 2);
   const name = `oficina-a1-backup-${today()}.json`;
@@ -1502,7 +1506,7 @@ function abrirOrcamento(p) {
   const emissao = new Date(), val = new Date(emissao.getTime() + num(c.validadeOrc || 7) * 864e5);
   const dt = d => d.toLocaleDateString("pt-BR");
   const numero = (p.id || "").slice(-6).toUpperCase();
-  const loja = c.nomeLoja || "Oficina A1";
+  const loja = nomeEmpresa();
   const prazo = p.entrega ? fmtDate(p.entrega) : "a combinar";
   const texto = `Olá${p.cliente ? " " + p.cliente.split(" ")[0] : ""}! Segue o orçamento da ${loja}:\n\n• ${p.desc}\n  ${q} × ${brl(un)} = *${brl(tot)}*\n\nPrazo de entrega: ${prazo}\nOrçamento válido até ${dt(val)}.${p.obs ? "\n\n" + p.obs : ""}\n\nQualquer dúvida é só chamar!`;
   let fone = String(p.contato || "").replace(/\D/g, ""); if (fone.length === 10 || fone.length === 11) fone = "55" + fone; if (fone.length < 12 || /@/.test(p.contato || "")) fone = "";
@@ -1510,7 +1514,7 @@ function abrirOrcamento(p) {
   const box = $("#orc");
   box.innerHTML = `<div class="orc-bar"><button class="btn pri" id="orc-print">Imprimir ou salvar PDF</button><a class="btn" id="orc-wa" href="${wa}" target="_blank" rel="noopener">Enviar no WhatsApp</a><button class="btn" id="orc-copy">Copiar texto</button><button class="btn" id="orc-close">Fechar</button></div>
   <div class="orc-doc">
-    <div class="orc-top"><div><h1>${esc(loja)}</h1><div class="mut">${esc(c.foneLoja || "")}</div></div><div style="text-align:right"><div style="font-weight:700">Orçamento nº ${esc(numero)}</div><div class="mut">Emitido em ${dt(emissao)}</div><div class="mut">Válido até ${dt(val)}</div></div></div>
+    <div class="orc-top"><div>${c.logo ? `<img class="logo" src="${c.logo}" alt="">` : ""}<h1>${esc(loja)}</h1><div class="mut">${esc(c.foneLoja || "")}</div></div><div style="text-align:right"><div style="font-weight:700">Orçamento nº ${esc(numero)}</div><div class="mut">Emitido em ${dt(emissao)}</div><div class="mut">Válido até ${dt(val)}</div></div></div>
     <div><div class="mut">Cliente</div><div style="font-weight:600;font-size:16px">${esc(p.cliente || "")}</div><div class="mut">${esc(p.contato || "")}</div></div>
     <table><thead><tr><th colspan="2">Item</th><th class="r">Qtd</th><th class="r">Valor unitário</th><th class="r">Total</th></tr></thead>
       <tbody><tr><td style="width:${foto ? 110 : 1}px">${foto ? `<img class="it" src="${foto}" alt="">` : ""}</td><td><b>${esc(p.desc)}</b><div class="mut">Impressão 3D${matsDe(p).length > 1 ? `, ${matsDe(p).length} cores` : ""}</div></td><td class="r">${q}</td><td class="r">${brl(un)}</td><td class="r">${brl(tot)}</td></tr></tbody></table>
@@ -1525,8 +1529,28 @@ function abrirOrcamento(p) {
   $("#orc-copy").onclick = async () => { try { await navigator.clipboard.writeText(texto); toast("Texto copiado"); } catch (e) { toast("Não consegui copiar aqui"); } };
 }
 
+/* ---------- marca ---------- */
+const nomeEmpresa = () => { const n = (cfg().nomeLoja || "").trim(); return !n || n === "Oficina A1" ? "Personalizados da Débora" : n; };
+function aplicarMarca() {
+  const n = nomeEmpresa(), logo = cfg().logo || "";
+  $("#brand-nome").textContent = n; $("#lg-nome").textContent = n; document.title = n + " · Gestão 3D";
+  const img = $("#brand-logo"); img.hidden = !logo; if (logo) img.src = logo; else img.removeAttribute("src");
+  $("#k-logo-prev").innerHTML = logo ? `<img src="${logo}" alt="">` : `<span class="t2" style="color:var(--faint)">sem logo</span>`; $("#k-logo-del").hidden = !logo;
+}
+function reduzirLogo(blob, max = 320) {
+  return new Promise((ok, no) => {
+    const url = URL.createObjectURL(blob), img = new Image();
+    img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)); const cv = document.createElement("canvas"); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k); cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height); URL.revokeObjectURL(url); const png = cv.toDataURL("image/png"); ok(png.length > 180000 ? cv.toDataURL("image/jpeg", 0.85) : png); };
+    img.onerror = () => { URL.revokeObjectURL(url); no(new Error("Não consegui abrir essa imagem.")); };
+    img.src = url;
+  });
+}
+$("#k-logo").addEventListener("change", async e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; try { const logo = await reduzirLogo(f); await saveConfig({ ...cfg(), logo }); } catch (err) { toast(err.message); } });
+$("#k-logo-del").addEventListener("click", () => saveConfig({ ...cfg(), logo: "" }));
+
 /* ---------- render ---------- */
 function renderAll() {
+  aplicarMarca();
   renderOrders(); renderPecas(); renderPanel(); renderBuys(); renderProdutos(); renderClientes(); fillPedidoSelect();
   if ($("#c-mats").refresh) $("#c-mats").refresh();
   calcUpdate();
