@@ -186,6 +186,17 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 .orc-doc img.it{width:96px;height:72px;object-fit:cover;border-radius:6px}
 .orc-doc .tot{display:flex;justify-content:flex-end;gap:16px;font-size:18px;font-weight:700}
 .orc-top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-bottom:2px solid #0B6E5F;padding-bottom:16px;margin-bottom:16px}
+.ins-row{display:grid;grid-template-columns:minmax(0,1fr) 92px 118px 70px 32px;gap:8px;align-items:center;padding-bottom:8px;border-bottom:1px dashed var(--line)}
+.ins-row select{grid-column:1/-1}
+.ins-sub{font-size:12px;color:var(--muted);text-align:right}
+.mats .btn[data-n="add"]{justify-self:start}
+@media (max-width:640px){.ins-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 32px}.ins-row select,.ins-row [data-n="desc"]{grid-column:1/-1}.ins-sub{display:none}}
+.nf-item{border:1px solid var(--line);border-radius:9px;padding:12px;background:var(--surface-2)}
+.nf-item input,.nf-item select{background:var(--surface)}
+.nf-item-h{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.nf-item-h .t2{flex:1;color:var(--muted)}
+.unit2{display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:6px}
+.subtabs{display:flex;gap:6px;margin-bottom:6px}
 @media print{
   body{background:#fff!important}
   body>*:not(#orc){display:none!important}
@@ -205,7 +216,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
       <button role="tab" data-tab="calc">Calcular preço</button>
       <button role="tab" data-tab="pedidos">Pedidos</button>
       <button role="tab" data-tab="produtos">Produtos</button>
-      <button role="tab" data-tab="clientes">Clientes</button>
+      <button role="tab" data-tab="clientes">Cadastros</button>
       <button role="tab" data-tab="compras">Compras e estoque</button>
       <button role="tab" data-tab="config">Parâmetros de custo</button>
     </nav>
@@ -218,7 +229,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 <section class="view" id="v-painel">
   <div class="head-row">
     <div><div class="eyebrow" id="p-mes"></div><h2>Visão geral do negócio</h2></div>
-    <div class="actions"><button class="btn pri" data-go="pedidos" data-new="1">+ Novo pedido</button><button class="btn" data-go="compras" data-new="1">+ Registrar compra</button></div>
+    <div class="actions"><button class="btn pri" data-go="pedidos" data-new="1">+ Novo pedido</button><button class="btn" data-go="compras" data-new="1">+ Lançar nota ou compra</button></div>
   </div>
   <div class="panel alertas" id="p-alertas" hidden></div>
   <div class="kpis" id="p-kpis"></div>
@@ -243,6 +254,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
         <div class="fields">
           <label class="f" style="grid-column:1/-1">Descrição da peça<input id="c-desc" placeholder="Ex.: Suporte de celular articulado"></label>
           <div class="mats" id="c-mats" style="grid-column:1/-1"></div>
+          <div class="mats" id="c-ins" style="grid-column:1/-1"></div>
           <label class="f">Tempo de impressão<div class="unit"><input id="c-h" type="number" step="1" min="0"><span>h</span></div></label>
           <label class="f">&nbsp;<div class="unit"><input id="c-min" type="number" step="1" min="0" max="59" aria-label="minutos"><span>min</span></div></label>
           <label class="f">Peças por impressão<div class="unit"><input id="c-pmesa" type="number" step="1" min="1"><span>un</span></div><span class="hint">quantas peças saem juntas na mesa</span></label>
@@ -314,7 +326,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
 <!-- ================= CLIENTES ================= -->
 <section class="view" id="v-clientes" hidden>
   <div class="head-row">
-    <div><div class="eyebrow">Relacionamento</div><h2>Clientes</h2>
+    <div><div class="subtabs"><button class="chip" data-go="clientes" aria-pressed="true">Clientes</button><button class="chip" data-go="fornecedores" aria-pressed="false">Fornecedores</button></div><div class="eyebrow">Cadastros</div><h2>Clientes</h2>
     <p class="sub">Quem compra de você e o histórico de cada um. Clientes novos são cadastrados sozinhos quando você salva um pedido.</p></div>
     <div class="actions"><button class="btn pri" id="cl-new">+ Novo cliente</button></div>
   </div>
@@ -322,16 +334,28 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
   <div class="panel"><div class="panel-h"><h3>Lista de clientes</h3><input id="cl-busca" placeholder="Buscar nome ou contato" style="max-width:240px"></div><div class="tbl-wrap" id="cl-list"></div></div>
 </section>
 
+<!-- ================= FORNECEDORES ================= -->
+<section class="view" id="v-fornecedores" hidden>
+  <div class="head-row">
+    <div><div class="subtabs"><button class="chip" data-go="clientes" aria-pressed="false">Clientes</button><button class="chip" data-go="fornecedores" aria-pressed="true">Fornecedores</button></div><div class="eyebrow">Cadastros</div><h2>Fornecedores</h2>
+    <p class="sub">De quem você compra filamento, argolas, embalagens e outros insumos, com o histórico de notas de cada um. Fornecedores novos são cadastrados sozinhos quando você lança uma nota.</p></div>
+    <div class="actions"><button class="btn pri" id="fo-new">+ Novo fornecedor</button></div>
+  </div>
+  <div id="fo-form-slot"></div>
+  <div class="panel"><div class="panel-h"><h3>Lista de fornecedores</h3><input id="fo-busca" placeholder="Buscar nome, cidade ou produto" style="max-width:240px"></div><div class="tbl-wrap" id="fo-list"></div></div>
+</section>
+
 <!-- ================= COMPRAS ================= -->
 <section class="view" id="v-compras" hidden>
   <div class="head-row">
     <div><div class="eyebrow">Insumos</div><h2>Compras e estoque</h2>
-    <p class="sub">Cada compra de filamento entra no estoque. O consumo sai automaticamente quando um pedido passa para Imprimindo, Pronto ou Entregue. Para lançar uma nota fiscal, importe o PDF (DANFE) ou o XML e confira os itens antes de salvar.</p></div>
-    <div class="actions"><label class="btn" for="b-xml">Importar nota fiscal (PDF ou XML)</label><input type="file" id="b-xml" accept=".pdf,.xml,application/pdf,text/xml,application/xml" multiple hidden><button class="btn pri" id="b-new">+ Registrar compra</button></div>
+    <p class="sub">Lance a nota fiscal com todos os produtos dela: filamento, argolas, embalagens, o que vier. Caixas e pacotes viram unidades pela conversão (1 cx com 100 un). O consumo sai do estoque quando um pedido passa para Imprimindo, Pronto ou Entregue. Também dá para importar o PDF (DANFE) ou o XML.</p></div>
+    <div class="actions"><label class="btn" for="b-xml">Importar nota fiscal (PDF ou XML)</label><input type="file" id="b-xml" accept=".pdf,.xml,application/pdf,text/xml,application/xml" multiple hidden><button class="btn pri" id="b-new">+ Lançar nota ou compra</button></div>
   </div>
   <div id="b-form-slot"></div>
   <div class="panel"><div class="panel-h"><h3>Estoque de filamento</h3><span class="eyebrow">custo médio inclui frete</span></div><div class="tbl-wrap" id="b-estoque"></div></div>
-  <div class="panel"><div class="panel-h"><h3>Histórico de compras</h3></div><div class="tbl-wrap" id="b-list"></div></div>
+  <div class="panel"><div class="panel-h"><h3>Outros insumos em estoque</h3><span class="eyebrow">custo por unidade inclui frete</span></div><div class="tbl-wrap" id="b-insumos"></div></div>
+  <div class="panel"><div class="panel-h"><h3>Notas e compras</h3></div><div class="tbl-wrap" id="b-list"></div></div>
 </section>
 
 <!-- ================= CONFIG ================= -->
@@ -449,11 +473,11 @@ const ABERTOS = new Set(["orc","apr","imp","pro"]);
 const MARCAS = ["Maxprint","Voltz 3D","Multifila 3D","Bambu Lab"];
 const MATERIAIS = ["PLA","PLA Silk","PLA Matte","PETG","ABS","ASA","TPU"];
 const TIPOS = ["Filamento","Peça de reposição","Embalagem","Outro"];
-const COLORS = ["var(--accent)","var(--info)","var(--warn)","#7C5CC4","var(--price)","#6B7F80","var(--bad)"];
+const COLORS = ["var(--accent)","var(--info)","var(--warn)","#7C5CC4","var(--price)","#6B7F80","var(--bad)","#B07D48"];
 
 /* ---------- estado ---------- */
-const COLS = ["pedidos", "compras", "produtos", "clientes"];
-const state = { pedidos: [], compras: [], produtos: [], clientes: [], config: { ...DEFAULTS } };
+const COLS = ["pedidos", "compras", "produtos", "clientes", "fornecedores"];
+const state = { pedidos: [], compras: [], produtos: [], clientes: [], fornecedores: [], config: { ...DEFAULTS } };
 let db = null, mode = "local";
 const LS = "oficinaA1.v1";
 /* Supabase (versão do site): preencha para compartilhar os dados entre computadores */
@@ -606,10 +630,12 @@ function calcular(inp, c = cfg()) {
   const falha = (filP + energia + dep + man) * num(c.falha) / 100;
   const mo = num(inp.moMin) / 60 * r.mo / n;
   const outros = num(inp.outros) / n;
-  const custo = filP + energia + dep + man + falha + mo + outros;
+  // outros materiais (argola, ímã…) já são por peça
+  const ins = (inp.insumos || []).reduce((s, i) => s + num(i.qtd) * num(i.custoUn), 0);
+  const custo = filP + energia + dep + man + falha + mo + outros + ins;
   const preco = precoDe(custo, num(inp.margem), num(inp.taxa), c);
   const lucro = preco * (1 - num(inp.taxa) / 100) - custo;
-  return { h, n, gTot, nCores: mats.length, fil: filP, energia, dep, man, falha, mo, outros, custo, preco, lucro, markup: custo > 0 ? (preco / custo - 1) : 0 };
+  return { h, n, gTot, nCores: mats.length, fil: filP, energia, dep, man, falha, mo, outros, ins, custo, preco, lucro, markup: custo > 0 ? (preco / custo - 1) : 0 };
 }
 
 /* ---------- estoque ---------- */
@@ -617,7 +643,7 @@ const matKey = (marca, material, cor) => [marca || "", material || "", cor || ""
 function estoque() {
   const map = new Map();
   for (const b of state.compras) {
-    if ((b.tipo || "Filamento") !== "Filamento") continue;
+    if (!ehFil(b)) continue;
     const k = matKey(b.marca, b.material, b.cor);
     const g = num(b.qtd) * num(b.peso);
     const e = map.get(k) || { key: k, marca: b.marca, material: b.material, cor: b.cor, g: 0, gasto: 0, usado: 0 };
@@ -666,7 +692,7 @@ function precoKgDe(key) { const e = estoque().find(x => x.key === key); return e
 
 /* ---------- navegação ---------- */
 function go(tab) {
-  $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  $$("nav.tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === (tab === "fornecedores" ? "clientes" : tab)));
   $$("section.view").forEach(s => s.hidden = s.id !== "v-" + tab);
   try { localStorage.setItem(LS + ".tab", tab); } catch (e) {}
   window.scrollTo(0, 0);
@@ -691,6 +717,7 @@ function fillPedidoSelect() {
 function carregarPedido(p) {
   $("#c-desc").value = p.desc || "";
   montarMats($("#c-mats"), matsDe(p).map(m => ({ ...m })), calcUpdate);
+  montarIns($("#c-ins"), p.insumos || [], calcUpdate);
   $("#c-h").value = num(p.h); $("#c-min").value = num(p.min); $("#c-qtd").value = Math.max(1, num(p.qtd || 1)); $("#c-pmesa").value = Math.max(1, num(p.pmesa) || 1);
   $("#c-mo").value = num(p.moMin); $("#c-outros").value = num(p.outros); $("#c-margem").value = num(p.margem); $("#c-taxa").value = num(p.taxa);
   calcUpdate();
@@ -698,13 +725,13 @@ function carregarPedido(p) {
 $("#c-pedido").addEventListener("change", () => { const p = pedidoSel(); if (p) carregarPedido(p); else calcReset(); fillPedidoSelect(); });
 function calcReset() {
   const c = cfg(); $("#c-pedido").value = ""; $("#c-to-pedido").textContent = "Criar pedido com este preço";
-  $("#c-desc").value = ""; montarMats($("#c-mats"), [{ matKey: "", precoKg: c.precoKg, g: 44 }], calcUpdate);
+  $("#c-desc").value = ""; montarMats($("#c-mats"), [{ matKey: "", precoKg: c.precoKg, g: 44 }], calcUpdate); montarIns($("#c-ins"), [], calcUpdate);
   $("#c-h").value = 3; $("#c-min").value = 30; $("#c-qtd").value = 1; $("#c-pmesa").value = 1;
   $("#c-mo").value = c.moMin; $("#c-outros").value = c.emb; $("#c-margem").value = c.margem; $("#c-taxa").value = c.taxa;
   calcUpdate();
 }
 function calcInput() {
-  return { mats: $("#c-mats").read(), h: $("#c-h").value, min: $("#c-min").value, pmesa: $("#c-pmesa").value, moMin: $("#c-mo").value, outros: $("#c-outros").value, margem: $("#c-margem").value, taxa: $("#c-taxa").value };
+  return { mats: $("#c-mats").read(), insumos: $("#c-ins").read(), h: $("#c-h").value, min: $("#c-min").value, pmesa: $("#c-pmesa").value, moMin: $("#c-mo").value, outros: $("#c-outros").value, margem: $("#c-margem").value, taxa: $("#c-taxa").value };
 }
 function calcUpdate() {
   const inp = calcInput(), r = calcular(inp), c = cfg(), rt = rates(c);
@@ -717,6 +744,7 @@ function calcUpdate() {
     ["Desgaste e manutenção", r.man, `${n2(r.h, 2)} h × ${brl(rt.man)}/h` + dv],
     ["Reserva para falhas", r.falha, `${n2(c.falha, 0)}% do custo de impressão`],
     ["Mão de obra", r.mo, `${n2(num(inp.moMin), 0)} min × ${brl(rt.mo)}/h` + dv],
+    ["Outros materiais", r.ins, inp.insumos.length ? inp.insumos.map(i => `${n2(num(i.qtd), num(i.qtd) % 1 ? 2 : 0)} ${i.uso || "un"} ${i.desc || "item"}`).join(" + ") + " por peça" : "argola, ímã, tag… (nenhum)"],
     ["Embalagem e outros", r.outros, r.n > 1 ? `${brl(num(inp.outros))}` + dv : "informado"]
   ];
   $("#r-stack").innerHTML = parts.map((p, i) => `<i style="width:${r.custo > 0 ? p[1] / r.custo * 100 : 0}%;background:${COLORS[i]}" title="${p[0]}"></i>`).join("");
@@ -748,7 +776,7 @@ $("#c-reset").addEventListener("click", calcReset);
 $("#c-to-prod").addEventListener("click", () => {
   const x = calcInput();
   go("produtos");
-  openProdForm({ nome: $("#c-desc").value.trim(), mats: x.mats, h: num(x.h), min: num(x.min), pmesa: Math.max(1, num(x.pmesa) || 1), moMin: num(x.moMin), outros: num(x.outros), margem: num(x.margem), taxa: num(x.taxa) });
+  openProdForm({ nome: $("#c-desc").value.trim(), mats: x.mats, insumos: x.insumos, h: num(x.h), min: num(x.min), pmesa: Math.max(1, num(x.pmesa) || 1), moMin: num(x.moMin), outros: num(x.outros), margem: num(x.margem), taxa: num(x.taxa) });
 });
 $("#c-to-pedido").addEventListener("click", () => {
   const r = calcular(calcInput());
@@ -756,7 +784,7 @@ $("#c-to-pedido").addEventListener("click", () => {
   if (ped) { go("pedidos"); openOrderForm(ped); return; }
   go("pedidos");
   openOrderForm({
-    desc: $("#c-desc").value, mats: $("#c-mats").read(),
+    desc: $("#c-desc").value, mats: $("#c-mats").read(), insumos: $("#c-ins").read(),
     h: num($("#c-h").value), min: num($("#c-min").value), qtd: Math.max(1, Math.round(num($("#c-qtd").value))), pmesa: Math.max(1, Math.round(num($("#c-pmesa").value))),
     moMin: num($("#c-mo").value), outros: num($("#c-outros").value), margem: num($("#c-margem").value), taxa: num($("#c-taxa").value),
     preco: isFinite(r.preco) ? r.preco : 0, status: "orc"
@@ -788,7 +816,7 @@ $("#o-pecas").addEventListener("click", e => {
   openOrderForm(vendaDoLote(l));
 });
 function vendaDoLote(l) {
-  return { produtoId: l.produtoId || "", desc: l.desc, mats: matsDe(l).map(m => ({ ...m })), h: l.h, min: l.min, pmesa: l.pmesa, qtd: 1, moMin: l.moMin, outros: l.outros, margem: l.margem, taxa: l.taxa, preco: num(l.preco), origem: l.id, status: "ent" };
+  return { produtoId: l.produtoId || "", desc: l.desc, mats: matsDe(l).map(m => ({ ...m })), insumos: (l.insumos || []).map(i => ({ ...i })), h: l.h, min: l.min, pmesa: l.pmesa, qtd: 1, moMin: l.moMin, outros: l.outros, margem: l.margem, taxa: l.taxa, preco: num(l.preco), origem: l.id, status: "ent" };
 }
 
 /* ---------- pedidos ---------- */
@@ -814,6 +842,7 @@ function openOrderForm(p) {
       <label class="f prod" style="grid-column:1/-1">Produto do catálogo<select id="of-prod"><option value="">Sem produto (preencher à mão)</option>${state.produtos.slice().sort((a, b) => a.nome.localeCompare(b.nome)).map(x => `<option value="${esc(x.id)}" ${x.id === p.produtoId ? "selected" : ""}>${esc(x.nome)}${num(x.preco) ? " · " + brl(num(x.preco)) : ""}</option>`).join("")}</select><span class="hint">puxa filamentos, tempo, peças por impressão, preço e foto do produto</span></label>
       <label class="f" style="grid-column:1/-1">Descrição<input id="of-desc" required value="${esc(p.desc)}" placeholder="Ex.: 10 chaveiros personalizados"></label>
       <div class="mats prod" id="of-mats" style="grid-column:1/-1"></div>
+      <div class="mats prod" id="of-ins" style="grid-column:1/-1"></div>
       <div class="note" id="of-lote-note" style="grid-column:1/-1" hidden></div>
       <label class="f prod">Tempo da impressão<div class="unit"><input id="of-h" type="number" step="1" min="0" value="${p.h}"><span>h</span></div></label>
       <label class="f prod">&nbsp;<div class="unit"><input id="of-min" type="number" step="1" min="0" max="59" value="${p.min}" aria-label="minutos"><span>min</span></div></label>
@@ -835,7 +864,7 @@ function openOrderForm(p) {
     <datalist id="dl-clientes">${state.clientes.map(c => `<option value="${esc(c.nome)}">`).join("")}</datalist>`;
   const f = $("#o-form");
   const read = () => ({
-    mats: $("#of-mats").read(), h: num($("#of-h").value), min: num($("#of-min").value),
+    mats: $("#of-mats").read(), insumos: $("#of-ins").read(), h: num($("#of-h").value), min: num($("#of-min").value),
     qtd: Math.max(1, Math.round(num($("#of-qtd").value))), pmesa: Math.max(1, Math.round(num($("#of-pmesa").value))), moMin: num($("#of-mo").value), outros: num($("#of-outros").value), margem: num($("#of-margem").value), taxa: num($("#of-taxa").value)
   });
   const lote = () => { const id = $("#of-origem").value; return id ? state.pedidos.find(o => o.id === id) : null; };
@@ -858,6 +887,7 @@ function openOrderForm(p) {
     return r;
   };
   montarMats($("#of-mats"), matsDe(p).map(m => ({ ...m })), () => upd());
+  montarIns($("#of-ins"), p.insumos || [], () => upd());
   f.addEventListener("input", upd); upd();
   if (!p.preco) { const r = upd(); if (isFinite(r.preco)) { $("#of-preco").value = r.preco.toFixed(2); upd(); } }
   $("#of-origem").addEventListener("change", () => { const L = lote(); if (L) { $("#of-desc").value = L.desc; if (!num($("#of-preco").value) && num(L.preco)) $("#of-preco").value = num(L.preco).toFixed(2); } upd(); });
@@ -867,6 +897,7 @@ function openOrderForm(p) {
     ["h", "min", "pmesa"].forEach(k => $("#of-" + k).value = num(P[k]) || (k === "pmesa" ? 1 : 0));
     $("#of-mo").value = num(P.moMin); $("#of-outros").value = num(P.outros); $("#of-margem").value = num(P.margem); $("#of-taxa").value = num(P.taxa);
     montarMats($("#of-mats"), (P.mats || []).map(m => ({ ...m })), () => upd());
+    montarIns($("#of-ins"), P.insumos || [], () => upd());
     const r = upd(); const pr = num(P.preco) || (isFinite(r.preco) ? r.preco : 0); if (pr) $("#of-preco").value = pr.toFixed(2); upd();
   });
   $("#of-cliente").addEventListener("change", () => { const c = clientePorNome($("#of-cliente").value); if (c && !$("#of-contato").value.trim()) $("#of-contato").value = c.contato || ""; });
@@ -946,46 +977,7 @@ function inlineConfirm(btn, onYes) {
 }
 
 /* ---------- compras ---------- */
-function openBuyForm(b) {
-  const isNew = !b || !b.id;
-  b = { id: "", data: today(), tipo: "Filamento", marca: "", material: "PLA", cor: "", qtd: 1, peso: 1000, valor: "", frete: 0, desc: "", fornecedor: "", ...(b || {}) };
-  const slot = $("#b-form-slot");
-  slot.innerHTML = `<form class="drawer" id="b-form" autocomplete="off">
-    <div class="panel-h"><h3>${isNew ? "Registrar compra" : "Editar compra"}</h3><button type="button" class="btn ghost sm" id="bf-close">Fechar</button></div>
-    <div class="panel-b"><div class="fields">
-      <label class="f">Data<input id="bf-data" type="date" value="${esc(b.data)}"></label>
-      <label class="f">Tipo<select id="bf-tipo">${TIPOS.map(t => `<option ${t === b.tipo ? "selected" : ""}>${t}</option>`).join("")}</select></label>
-      <label class="f fil">Marca<input id="bf-marca" list="dl-marcas" value="${esc(b.marca)}" placeholder="Maxprint"></label>
-      <label class="f fil">Material<input id="bf-material" list="dl-mat" value="${esc(b.material)}"></label>
-      <label class="f fil">Cor<input id="bf-cor" value="${esc(b.cor)}" placeholder="Preto"></label>
-      <label class="f nfil">Item<input id="bf-desc" value="${esc(b.desc)}" placeholder="Ex.: hotend 0,4 mm"></label>
-      <label class="f">Quantidade<div class="unit"><input id="bf-qtd" type="number" step="1" min="1" value="${b.qtd}"><span class="fil-u">rolos</span></div></label>
-      <label class="f fil">Peso por rolo<div class="unit"><input id="bf-peso" type="number" step="50" value="${b.peso}"><span>g</span></div></label>
-      <label class="f">Valor total pago<div class="unit"><input id="bf-valor" type="number" step="0.01" required value="${b.valor}"><span>R$</span></div></label>
-      <label class="f">Frete<div class="unit"><input id="bf-frete" type="number" step="0.01" value="${b.frete}"><span>R$</span></div></label>
-      <label class="f">Loja/fornecedor<input id="bf-forn" value="${esc(b.fornecedor)}" placeholder="Site, Mercado Livre…"></label>
-    </div>
-    <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar compra" : "Salvar alterações"}</button><span id="bf-resumo" class="num" style="color:var(--muted);font-size:12px"></span></div>
-    </div></form>
-    <datalist id="dl-marcas">${MARCAS.map(m => `<option value="${m}">`).join("")}</datalist>
-    <datalist id="dl-mat">${MATERIAIS.map(m => `<option value="${m}">`).join("")}</datalist>`;
-  const f = $("#b-form");
-  const upd = () => {
-    const fil = $("#bf-tipo").value === "Filamento";
-    f.querySelectorAll(".fil").forEach(el => el.hidden = !fil); f.querySelectorAll(".nfil").forEach(el => el.hidden = fil);
-    f.querySelector(".fil-u").textContent = fil ? "rolos" : "un";
-    const g = num($("#bf-qtd").value) * num($("#bf-peso").value), tot = num($("#bf-valor").value) + num($("#bf-frete").value);
-    $("#bf-resumo").textContent = fil && g > 0 && tot > 0 ? `${n2(g / 1000, 2)} kg · ${brl(tot / g * 1000)}/kg com frete` : tot > 0 ? `Total ${brl(tot)}` : "";
-  };
-  f.addEventListener("input", upd); upd();
-  $("#bf-close").addEventListener("click", () => slot.innerHTML = "");
-  f.addEventListener("submit", e => {
-    e.preventDefault();
-    const obj = { ...b, id: b.id || uid("c"), data: $("#bf-data").value, tipo: $("#bf-tipo").value, marca: $("#bf-marca").value.trim(), material: $("#bf-material").value.trim(), cor: $("#bf-cor").value.trim(), desc: $("#bf-desc").value.trim(), qtd: num($("#bf-qtd").value), peso: num($("#bf-peso").value), valor: num($("#bf-valor").value), frete: num($("#bf-frete").value), fornecedor: $("#bf-forn").value.trim() };
-    saveDoc("compras", obj); slot.innerHTML = ""; toast(isNew ? "Compra registrada" : "Compra atualizada");
-  });
-  slot.scrollIntoView({ behavior: "smooth", block: "start" });
-}
+function openBuyForm(b) { openNotaForm(b ? [b] : null); }
 $("#b-new").addEventListener("click", () => openBuyForm());
 
 /* ---------- importação de NF-e (XML) ---------- */
@@ -1142,23 +1134,24 @@ function abrirConferencia(notas, erros) {
     <div class="panel-b" style="display:grid;gap:12px">
       ${erros.length ? `<div class="note" style="color:var(--bad)">${erros.map(esc).join("<br>")}</div>` : ""}
       ${notas.map(n => `<div class="note"><b>NF ${esc(n.numero)}</b> · ${esc(n.fornecedor)} · ${fmtDate(n.data)} · ${n.itens.length} ${n.itens.length === 1 ? "item" : "itens"}${dup.has(n.chave) && n.chave ? ` · <b style="color:var(--bad)">esta nota já foi importada</b>` : ""}</div>`).join("")}
-      ${linhas.length ? `<p class="sub" style="margin:0">Confira marca, material, cor e peso do rolo. O frete da nota foi dividido entre os itens pelo valor de cada um.</p>
-      <div class="tbl-wrap"><table class="list" style="min-width:980px"><thead><tr><th></th><th>Item da nota</th><th>Tipo</th><th>Marca</th><th>Material</th><th>Cor</th><th class="r">Qtd</th><th class="r">g/rolo</th><th class="r">Valor</th><th class="r">Frete</th></tr></thead><tbody>
+      ${linhas.length ? `<p class="sub" style="margin:0">Confira tipo, marca, material, cor e a conversão (gramas por rolo no filamento, unidades por caixa nos outros itens). O frete da nota foi dividido entre os itens pelo valor de cada um.</p>
+      <div class="tbl-wrap"><table class="list" style="min-width:980px"><thead><tr><th></th><th>Item da nota</th><th>Tipo</th><th>Marca</th><th>Material</th><th>Cor</th><th class="r">Qtd</th><th class="r" title="gramas por rolo (filamento) ou unidades por caixa/pacote">Conversão</th><th class="r">Valor</th><th class="r">Frete</th></tr></thead><tbody>
       ${linhas.map((l, i) => `<tr data-i="${i}">
         <td><input type="checkbox" data-k="on" ${dup.has(l.nota.chave) && l.nota.chave ? "" : "checked"} aria-label="Lançar"></td>
         <td style="max-width:240px"><div class="t2" style="color:var(--ink)">${esc(l.nome)}</div></td>
-        <td><select data-k="tipo" style="min-width:130px">${opt(TIPOS, l.tipo)}</select></td>
+        <td><input data-k="tipo" list="dl-tipos" value="${esc(l.tipo)}" style="min-width:130px"></td>
         <td><input data-k="marca" list="dl-marcas" value="${esc(l.marca)}" style="min-width:110px"></td>
         <td><input data-k="material" list="dl-mat" value="${esc(l.material)}" style="min-width:90px"></td>
         <td><input data-k="cor" value="${esc(l.cor)}" style="min-width:90px"></td>
         <td><input data-k="qtd" type="number" step="1" value="${l.qtd}" style="width:70px"></td>
-        <td><input data-k="peso" type="number" step="50" value="${l.peso}" style="width:80px"></td>
+        <td><input data-k="peso" type="number" step="any" value="${l.fil ? l.peso : 1}" style="width:80px"></td>
         <td><input data-k="valor" type="number" step="0.01" value="${l.valor}" style="width:95px"></td>
         <td><input data-k="frete" type="number" step="0.01" value="${l.frete}" style="width:80px"></td></tr>`).join("")}
       </tbody></table></div>` : `<div class="empty"><b>Nenhum item encontrado</b>Confira se o arquivo é a nota fiscal (DANFE em PDF ou XML da NF-e).</div>`}
       <div class="actions">${linhas.length ? `<button class="btn pri" type="submit">Lançar compras marcadas</button>` : ""}<span class="t2" id="xf-msg" style="color:var(--muted);font-size:12px"></span></div>
     </div></form>
     <datalist id="dl-marcas">${MARCAS.map(m => `<option value="${m}">`).join("")}</datalist>
+    <datalist id="dl-tipos">${tiposConhecidos().map(t => `<option value="${esc(t)}">`).join("")}</datalist>
     <datalist id="dl-mat">${MATERIAIS.map(m => `<option value="${m}">`).join("")}</datalist>`;
   $("#xf-close").addEventListener("click", () => slot.innerHTML = "");
   const f = $("#x-form");
@@ -1169,8 +1162,9 @@ function abrirConferencia(notas, erros) {
       const g = k => tr.querySelector(`[data-k="${k}"]`);
       if (!g("on").checked) continue;
       const l = linhas[+tr.dataset.i];
-      const tipo = g("tipo").value;
-      await saveDoc("compras", { id: uid("c"), data: l.nota.data, tipo, marca: g("marca").value.trim(), material: g("material").value.trim(), cor: g("cor").value.trim(), desc: tipo === "Filamento" ? "" : l.nome, qtd: num(g("qtd").value), peso: num(g("peso").value), valor: num(g("valor").value), frete: num(g("frete").value), fornecedor: `${l.nota.fornecedor} · NF ${l.nota.numero}`, nfeChave: l.nota.chave, origem: "xml" });
+      const tipo = g("tipo").value.trim() || "Outro", fil = ehFil({ tipo }), cv = num(g("peso").value) || 1;
+      if (!l.nota.nfId) { l.nota.nfId = uid("n"); l.nota.F = garantirFornecedor(l.nota.fornecedor); }
+      await saveDoc("compras", { id: uid("c"), nfId: l.nota.nfId, nfNum: l.nota.numero, fornecedorId: l.nota.F ? l.nota.F.id : "", data: l.nota.data, tipo: fil ? "Filamento" : tipo, marca: g("marca").value.trim(), material: g("material").value.trim(), cor: g("cor").value.trim(), desc: fil ? "" : l.nome, qtd: num(g("qtd").value), un: fil ? "rolo" : "un", conv: cv, uso: fil ? "g" : "un", peso: fil ? cv : 0, valorItem: num(g("valor").value), valor: num(g("valor").value), frete: num(g("frete").value), fornecedor: l.nota.fornecedor, nfeChave: l.nota.chave, origem: "xml" });
       n++;
     }
     slot.innerHTML = ""; toast(n ? `${n} ${n === 1 ? "compra lançada" : "compras lançadas"} da nota` : "Nenhum item marcado");
@@ -1190,26 +1184,13 @@ function renderBuys() {
       <td class="r num">${n2(e.g / 1000, 2)} kg</td><td class="r num">${n2(e.usado / 1000, 2)} kg</td>
       <td class="r num" style="${low ? "color:var(--bad);font-weight:600" : ""}">${n2(e.saldo / 1000, 2)} kg</td>
       <td><div class="bar ${low ? "low" : ""}"><i style="width:${pct * 100}%"></i></div></td><td class="r num">${brl(e.precoKg)}/kg</td></tr>`; }).join("") + `</tbody></table>`;
-  const list = state.compras.slice().sort((a, b) => (b.data || "").localeCompare(a.data || ""));
-  $("#b-list").innerHTML = !list.length ? `<div class="empty"><b>Nenhuma compra registrada</b>Filamentos, bicos, placas, embalagens: tudo que entra aparece aqui.</div>` :
-    `<table class="list"><thead><tr><th>Data</th><th>Item</th><th>Tipo</th><th class="r">Qtd</th><th class="r">Valor + frete</th><th class="r">R$/kg</th><th></th></tr></thead><tbody>` +
-    list.map(b => { const fil = (b.tipo || "Filamento") === "Filamento"; const g = num(b.qtd) * num(b.peso); const tot = num(b.valor) + num(b.frete);
-      return `<tr data-id="${esc(b.id)}"><td class="num">${fmtDate(b.data)}</td>
-      <td><div class="t1">${fil ? esc(`${b.marca} ${b.material} ${b.cor}`) : esc(b.desc || b.tipo)}</div><div class="t2">${esc(b.fornecedor || "")}</div></td>
-      <td>${esc(b.tipo || "Filamento")}</td><td class="r num">${n2(num(b.qtd), 0)}${fil ? ` × ${n2(num(b.peso), 0)} g` : ""}</td>
-      <td class="r num">${brl(tot)}</td><td class="r num">${fil && g > 0 ? brl(tot / g * 1000) : "—"}</td>
-      <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button></span></td></tr>`; }).join("") + `</tbody></table>`;
+  renderNotas();
 }
-$("#b-list").addEventListener("click", e => {
-  const b = e.target.closest("[data-act]"); if (!b) return; const tr = b.closest("tr[data-id]"); const c = state.compras.find(x => x.id === tr.dataset.id); if (!c) return;
-  if (b.dataset.act === "edit") openBuyForm(c);
-  if (b.dataset.act === "del") inlineConfirm(b, () => { delDoc("compras", c.id); toast("Compra excluída"); });
-});
-
 /* ---------- painel ---------- */
 function renderAlertas() {
   const c = cfg(), itens = [];
   estoque().filter(e => e.saldo < num(c.alertaG)).forEach(e => itens.push(`Filamento <b>${esc([e.marca, e.material, e.cor].filter(Boolean).join(" "))}</b>: ${e.saldo > 0 ? `restam ${n2(e.saldo, 0)} g` : "acabou"}`));
+  insumos().filter(e => e.saldo <= e.un * 0.1).forEach(e => itens.push(`Insumo <b>${esc(insNome(e))}</b>: ${e.saldo > 0 ? `restam ${q3(e.saldo)} ${esc(e.uso)}` : "acabou"}`));
   lotes().filter(l => l.saldo > 0 && l.saldo <= num(c.alertaPecas)).forEach(l => itens.push(`Peça pronta <b>${esc(l.desc)}</b>: ${l.saldo === 1 ? "resta 1" : `restam ${n2(l.saldo, 0)}`} no estoque`));
   const box = $("#p-alertas"); box.hidden = !itens.length;
   box.innerHTML = itens.length ? `<div class="panel-h"><h3>Estoque baixo</h3><button class="btn ghost sm" data-go="compras">Ver estoque</button></div><div class="panel-b"><ul style="margin:0;padding-left:18px">${itens.map(i => `<li>${i}</li>`).join("")}</ul></div>` : "";
@@ -1322,7 +1303,7 @@ $("#pr-busca").addEventListener("input", renderProdutos);
 $("#pr-new").addEventListener("click", () => openProdForm());
 function pedidoDoProduto(x, extra) {
   const r = calcular(x);
-  return { produtoId: x.id, desc: x.nome, mats: (x.mats || []).map(m => ({ ...m })), h: num(x.h), min: num(x.min), pmesa: Math.max(1, num(x.pmesa) || 1), moMin: num(x.moMin), outros: num(x.outros), margem: num(x.margem), taxa: num(x.taxa), preco: num(x.preco) || (isFinite(r.preco) ? r.preco : 0), ...extra };
+  return { produtoId: x.id, desc: x.nome, mats: (x.mats || []).map(m => ({ ...m })), insumos: (x.insumos || []).map(i => ({ ...i })), h: num(x.h), min: num(x.min), pmesa: Math.max(1, num(x.pmesa) || 1), moMin: num(x.moMin), outros: num(x.outros), margem: num(x.margem), taxa: num(x.taxa), preco: num(x.preco) || (isFinite(r.preco) ? r.preco : 0), ...extra };
 }
 $("#pr-list").addEventListener("click", e => {
   const b = e.target.closest("[data-act]"); if (!b) return; const card = b.closest("[data-id]"); const x = state.produtos.find(o => o.id === card.dataset.id); if (!x) return;
@@ -1345,6 +1326,7 @@ function openProdForm(x, info) {
       <label class="f" style="grid-column:1/-1">Nome do produto<input id="pf-nome" required value="${esc(x.nome)}" placeholder="Ex.: Mini Jesus 8 cm"></label>
       <div class="f" style="grid-column:1/-1">Foto<div class="foto-box"><span id="pf-foto-prev"></span><label class="btn sm" for="pf-foto">Escolher foto</label><input type="file" id="pf-foto" accept="image/*" hidden><button type="button" class="btn sm ghost" id="pf-foto-del">Remover foto</button></div><span class="hint">aparece no catálogo e no orçamento</span></div>
       <div class="mats" id="pf-mats" style="grid-column:1/-1"></div>
+      <div class="mats" id="pf-ins" style="grid-column:1/-1"></div>
       <label class="f">Tempo da impressão<div class="unit"><input id="pf-h" type="number" step="1" min="0" value="${num(x.h)}"><span>h</span></div></label>
       <label class="f">&nbsp;<div class="unit"><input id="pf-min" type="number" step="1" min="0" max="59" value="${num(x.min)}" aria-label="minutos"><span>min</span></div></label>
       <label class="f">Peças por impressão<div class="unit"><input id="pf-pmesa" type="number" step="1" min="1" value="${num(x.pmesa) || 1}"><span>un</span></div><span class="hint">quantas saem juntas na mesa</span></label>
@@ -1359,9 +1341,10 @@ function openProdForm(x, info) {
     </div></form>`;
   const f = $("#pf-form");
   const drawFoto = () => { $("#pf-foto-prev").innerHTML = foto ? `<img src="${foto}" alt="">` : `<span class="t2" style="color:var(--faint)">sem foto</span>`; $("#pf-foto-del").hidden = !foto; };
-  const read = () => ({ mats: $("#pf-mats").read(), h: num($("#pf-h").value), min: num($("#pf-min").value), pmesa: Math.max(1, Math.round(num($("#pf-pmesa").value))), moMin: num($("#pf-mo").value), outros: num($("#pf-outros").value), margem: num($("#pf-margem").value), taxa: num($("#pf-taxa").value) });
+  const read = () => ({ mats: $("#pf-mats").read(), insumos: $("#pf-ins").read(), h: num($("#pf-h").value), min: num($("#pf-min").value), pmesa: Math.max(1, Math.round(num($("#pf-pmesa").value))), moMin: num($("#pf-mo").value), outros: num($("#pf-outros").value), margem: num($("#pf-margem").value), taxa: num($("#pf-taxa").value) });
   const upd = () => { const r = calcular(read()); $("#pf-sug").textContent = `custo ${brl(r.custo)} por peça · sugerido ${isFinite(r.preco) ? brl(r.preco) : "—"}`; return r; };
   montarMats($("#pf-mats"), x.mats.map(m => ({ ...m })), upd);
+  montarIns($("#pf-ins"), x.insumos || [], upd);
   f.addEventListener("input", upd); upd(); drawFoto();
   if (!num(x.preco)) { const r = upd(); if (isFinite(r.preco)) $("#pf-preco").value = r.preco.toFixed(2); }
   $("#pf-usar").addEventListener("click", () => { const r = upd(); if (isFinite(r.preco)) $("#pf-preco").value = r.preco.toFixed(2); });
@@ -1473,15 +1456,18 @@ $("#cl-list").addEventListener("click", e => {
 });
 function openClienteForm(c) {
   const isNew = !c || !c.id;
-  c = { id: "", nome: "", contato: "", cidade: "", obs: "", ...(c || {}) };
+  c = { id: "", nome: "", contato: "", email: "", doc: "", endereco: "", cidade: "", obs: "", ...(c || {}) };
   const slot = $("#cl-form-slot");
   slot.innerHTML = `<form class="drawer" id="cf-form" autocomplete="off">
     <div class="panel-h"><h3>${isNew ? "Novo cliente" : "Editar cliente"}</h3><button type="button" class="btn ghost sm" id="cf-close">Fechar</button></div>
     <div class="panel-b"><div class="fields">
       <label class="f">Nome<input id="cf-nome" required value="${esc(c.nome)}"></label>
-      <label class="f">WhatsApp ou e-mail<input id="cf-contato" value="${esc(c.contato)}"></label>
+      <label class="f">WhatsApp<input id="cf-contato" value="${esc(c.contato)}"></label>
+      <label class="f">E-mail<input id="cf-email" type="email" value="${esc(c.email)}"></label>
+      <label class="f">CPF ou CNPJ<input id="cf-doc" value="${esc(c.doc)}" inputmode="numeric"></label>
+      <label class="f" style="grid-column:span 2">Endereço de entrega<input id="cf-endereco" value="${esc(c.endereco)}"></label>
       <label class="f">Cidade<input id="cf-cidade" value="${esc(c.cidade)}"></label>
-      <label class="f" style="grid-column:1/-1">Observações<textarea id="cf-obs" placeholder="Preferências, endereço de entrega…">${esc(c.obs)}</textarea></label>
+      <label class="f" style="grid-column:1/-1">Observações<textarea id="cf-obs" placeholder="Preferências, datas especiais…">${esc(c.obs)}</textarea></label>
     </div>
     <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar cliente" : "Salvar alterações"}</button></div></div></form>`;
   $("#cf-close").addEventListener("click", () => slot.innerHTML = "");
@@ -1490,7 +1476,7 @@ function openClienteForm(c) {
     const nome = $("#cf-nome").value.trim(); const dup = clientePorNome(nome);
     if (dup && dup.id !== c.id) { toast("Já existe um cliente com esse nome"); return; }
     const antigo = c.nome;
-    saveDoc("clientes", { ...c, id: c.id || uid("k"), nome, contato: $("#cf-contato").value.trim(), cidade: $("#cf-cidade").value.trim(), obs: $("#cf-obs").value, criado: c.criado || today() });
+    saveDoc("clientes", { ...c, id: c.id || uid("k"), nome, contato: $("#cf-contato").value.trim(), email: $("#cf-email").value.trim(), doc: $("#cf-doc").value.trim(), endereco: $("#cf-endereco").value.trim(), cidade: $("#cf-cidade").value.trim(), obs: $("#cf-obs").value, criado: c.criado || today() });
     // renomear também nos pedidos
     if (!isNew && antigo && chaveNome(antigo) !== chaveNome(nome)) pedidosDoCliente(antigo).forEach(p => saveDoc("pedidos", { ...p, cliente: nome }));
     slot.innerHTML = ""; toast(isNew ? "Cliente salvo" : "Cliente atualizado");
@@ -1575,11 +1561,269 @@ function reduzirLogo(blob, max = 320) {
 $("#k-logo").addEventListener("change", async e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; try { const logo = await reduzirLogo(f); const logoT = await semFundo(logo); await saveConfig({ ...cfg(), logo, logoT }); } catch (err) { toast(err.message); } });
 $("#k-logo-del").addEventListener("click", () => saveConfig({ ...cfg(), logo: "", logoT: "" }));
 
+/* ---------- insumos (tudo que não é filamento) ---------- */
+const UN_COMPRA = ["un", "cx", "pct", "rolo", "kg", "m", "kit", "par"];
+const UN_USO = ["un", "g", "m", "cm", "ml", "par"];
+const TIPOS_SUG = ["Filamento", "Argola de chaveiro", "Ímã", "Embalagem", "Tag / etiqueta", "Cola", "Tinta", "Parafuso", "Peça de reposição", "Outro"];
+const tiposConhecidos = () => [...new Set([...TIPOS_SUG, ...state.compras.map(c => (c.tipo || "").trim()).filter(Boolean)])];
+const ehFil = b => semAcento(b.tipo || "Filamento").trim().toLowerCase() === "filamento";
+const insKey = b => [b.tipo, b.desc, b.marca, b.material, b.cor].map(s => semAcento((s || "").trim().toLowerCase())).join("|");
+const insNome = e => [e.desc || e.tipo, e.marca, e.material, e.cor].filter(Boolean).join(" ");
+const q3 = v => n2(v, Math.abs(v % 1) > 1e-9 ? 2 : 0);
+function insumos() {
+  const map = new Map();
+  for (const b of state.compras) {
+    if (ehFil(b)) continue;
+    const k = insKey(b);
+    const e = map.get(k) || { key: k, tipo: b.tipo || "Outro", desc: b.desc || "", marca: b.marca || "", material: b.material || "", cor: b.cor || "", uso: b.uso || "un", un: 0, gasto: 0, usado: 0 };
+    e.un += num(b.qtd) * (num(b.conv) || 1); e.gasto += num(b.valor) + num(b.frete); if (b.uso) e.uso = b.uso;
+    map.set(k, e);
+  }
+  for (const p of state.pedidos) {
+    if (!CONSUMIDO.has(p.status) || p.origem) continue;
+    for (const i of p.insumos || []) { const e = i.key && map.get(i.key); if (e) e.usado += num(i.qtd) * num(p.qtd || 1); }
+  }
+  return [...map.values()].map(e => ({ ...e, saldo: e.un - e.usado, custoUn: e.un > 0 ? e.gasto / e.un : 0 })).sort((a, b) => insNome(a).localeCompare(insNome(b)));
+}
+function insRowHtml(it, i, est) {
+  const opts = `<option value="">Item avulso (digitar custo)</option>` + est.map(e => `<option value="${esc(e.key)}" ${e.key === it.key ? "selected" : ""}>${esc(insNome(e))} · ${brl(e.custoUn)}/${esc(e.uso)} · ${q3(e.saldo)} ${esc(e.uso)} no estoque</option>`).join("");
+  return `<div class="ins-row" data-i="${i}">
+    <select data-n="key" aria-label="Material ${i + 1}">${opts}</select>
+    <input data-n="desc" value="${esc(it.desc || "")}" placeholder="Ex.: argola de chaveiro" aria-label="Descrição do material ${i + 1}">
+    <div class="unit"><input data-n="qtd" type="number" step="any" min="0" value="${num(it.qtd)}" aria-label="Quantidade por peça ${i + 1}"><span data-n="uso">${esc(it.uso || "un")}</span></div>
+    <div class="unit"><input data-n="custoUn" type="number" step="0.0001" min="0" value="${+num(it.custoUn).toFixed(4)}" aria-label="Custo unitário ${i + 1}"><span>R$/un</span></div>
+    <span class="ins-sub num" data-n="sub"></span>
+    <button type="button" class="btn sm ghost danger" data-n="del" aria-label="Remover material ${i + 1}">✕</button></div>`;
+}
+function montarIns(box, rows, onChange) {
+  rows = (rows || []).map(r => ({ ...r }));
+  const read = () => [...box.querySelectorAll(".ins-row")].map(r => { const g = k => r.querySelector(`[data-n="${k}"]`); return { key: g("key").value, desc: g("desc").value.trim(), qtd: num(g("qtd").value), custoUn: num(g("custoUn").value), uso: g("uso").textContent }; });
+  const sync = () => { const est = insumos(); box.querySelectorAll(".ins-row").forEach(r => {
+    const g = k => r.querySelector(`[data-n="${k}"]`); const k = g("key").value; const e = k ? est.find(x => x.key === k) : null;
+    if (e) { g("custoUn").value = +e.custoUn.toFixed(4); g("uso").textContent = e.uso; g("desc").value = insNome(e); }
+    g("custoUn").readOnly = g("desc").readOnly = !!e;
+    g("sub").textContent = brl(num(g("qtd").value) * num(g("custoUn").value));
+  }); };
+  const draw = () => {
+    const est = insumos();
+    box.innerHTML = `<div class="f" style="display:grid;gap:2px;font-size:12px;font-weight:500;color:var(--muted)">Outros materiais da peça<span class="hint" style="font-weight:400;color:var(--faint);font-size:11px">Além do filamento: argola de chaveiro, ímã, cola, tag, saquinho. A quantidade é <b>por peça pronta</b>. Os itens lançados pela nota fiscal aparecem aqui com o custo por unidade.</span></div>`
+      + rows.map((it, i) => insRowHtml(it, i, est)).join("") + `<button type="button" class="btn sm" data-n="add">+ Adicionar material</button>`;
+    sync();
+  };
+  const changed = e => { if (e.target.closest("[data-n]")) { sync(); rows = read(); onChange(); } };
+  box.oninput = changed; box.onchange = changed;
+  box.onclick = e => { const b = e.target.closest("button[data-n]"); if (!b) return; rows = read(); if (b.dataset.n === "add") rows.push({ key: "", desc: "", qtd: 1, custoUn: 0, uso: "un" }); else rows.splice(+b.closest(".ins-row").dataset.i, 1); draw(); onChange(); };
+  box.read = () => read().filter(r => r.key || r.desc || r.custoUn > 0);
+  box.refresh = () => { rows = read(); draw(); };
+  draw();
+}
+
+/* ---------- notas fiscais (compras com vários itens) ---------- */
+const nomeFornecedor = s => String(s || "").replace(/\s*·\s*NF\s*\S*\s*$/i, "").trim();
+const numeroNF = c => c.nfNum || ((String(c.fornecedor || "").match(/NF\s*(\S+)\s*$/i) || [])[1] || "");
+const notaKey = c => c.nfId || (c.nfeChave ? "x:" + c.nfeChave : "c:" + c.id);
+const nomeItem = b => ehFil(b) ? [b.marca, b.material, b.cor].filter(Boolean).join(" ") || "Filamento" : insNome(b);
+function notas() {
+  const map = new Map();
+  for (const c of state.compras) { const k = notaKey(c); const n = map.get(k) || { key: k, itens: [] }; n.itens.push(c); map.set(k, n); }
+  return [...map.values()].map(n => { const a = n.itens[0]; return { ...n, data: a.data, numero: numeroNF(a), fornecedor: nomeFornecedor(a.fornecedor), total: n.itens.reduce((s, c) => s + num(c.valor) + num(c.frete), 0) }; })
+    .sort((a, b) => (b.data || "").localeCompare(a.data || ""));
+}
+const novoItemNF = () => ({ tipo: "Filamento", desc: "", marca: "", material: "PLA", cor: "", qtd: 1, un: "rolo", conv: 1000, uso: "g", valorItem: "" });
+function itemParaForm(c) {
+  const fil = ehFil(c);
+  return { id: c.id, orig: c, tipo: c.tipo || "Filamento", desc: c.desc || "", marca: c.marca || "", material: c.material || "", cor: c.cor || "", qtd: num(c.qtd) || 1,
+    un: c.un || (fil ? "rolo" : "un"), conv: fil ? (num(c.conv) || num(c.peso) || 1000) : (num(c.conv) || 1), uso: fil ? "g" : (c.uso || "un"), valorItem: c.valorItem != null ? num(c.valorItem) : num(c.valor) };
+}
+function nfItemHtml(r, i, n) {
+  const sel = (arr, v) => [...new Set([...arr, v].filter(Boolean))].map(x => `<option ${x === v ? "selected" : ""}>${esc(x)}</option>`).join("");
+  return `<div class="nf-item" data-i="${i}">
+    <div class="nf-item-h"><b>Item ${i + 1}</b><span class="t2 num" data-r="res"></span>${n > 1 ? `<button type="button" class="btn sm ghost danger" data-r="del">Remover</button>` : ""}</div>
+    <div class="fields">
+      <label class="f">Tipo do produto<input data-r="tipo" list="dl-tipos" value="${esc(r.tipo)}" placeholder="Filamento, argola, embalagem…" required></label>
+      <label class="f">Produto / descrição<input data-r="desc" value="${esc(r.desc)}" placeholder="Ex.: argola 25 mm niquelada"></label>
+      <label class="f">Marca<input data-r="marca" list="dl-marcas" value="${esc(r.marca)}"></label>
+      <label class="f">Material<input data-r="material" list="dl-mat" value="${esc(r.material)}" placeholder="PLA, metal, papel…"></label>
+      <label class="f">Cor<input data-r="cor" value="${esc(r.cor)}"></label>
+      <label class="f">Quantidade comprada<div class="unit2"><input data-r="qtd" type="number" step="any" min="0" value="${r.qtd}"><select data-r="un" aria-label="Unidade de compra">${sel(UN_COMPRA, r.un)}</select></div></label>
+      <label class="f"><span data-r="conv-l">Conversão</span><div class="unit2"><input data-r="conv" type="number" step="any" min="0" value="${r.conv}"><select data-r="uso" aria-label="Unidade de uso">${sel(UN_USO, r.uso)}</select></div><span class="hint" data-r="conv-h"></span></label>
+      <label class="f">Valor total do item<div class="unit"><input data-r="valorItem" type="number" step="0.01" min="0" value="${r.valorItem}" required><span>R$</span></div></label>
+    </div></div>`;
+}
+function openNotaForm(itens, preset) {
+  const isNew = !itens || !itens.length;
+  const a = isNew ? {} : itens[0];
+  const nf = { nfId: a.nfId || "", numero: isNew ? "" : numeroNF(a), data: a.data || today(), fornecedor: nomeFornecedor(a.fornecedor), frete: isNew ? 0 : Math.round(itens.reduce((s, c) => s + num(c.frete), 0) * 100) / 100, desconto: num(a.nfDesc), ...(preset || {}) };
+  let rows = isNew ? [novoItemNF()] : itens.map(itemParaForm);
+  const slot = $("#b-form-slot");
+  const forns = [...new Set([...state.fornecedores.map(f => f.nome), ...notas().map(n => n.fornecedor)].filter(Boolean))].sort();
+  slot.innerHTML = `<form class="drawer" id="nf-form" autocomplete="off">
+    <div class="panel-h"><h3>${isNew ? "Lançar nota fiscal ou compra" : "Editar nota fiscal"}</h3><button type="button" class="btn ghost sm" id="nf-close">Fechar</button></div>
+    <div class="panel-b">
+    <fieldset class="fs"><legend>Dados da nota</legend><div class="fields">
+      <label class="f" style="grid-column:span 2">Fornecedor<input id="nf-forn" list="dl-forn" value="${esc(nf.fornecedor)}" placeholder="Loja, site ou distribuidor" required><span class="hint">fornecedor novo é cadastrado sozinho</span></label>
+      <label class="f">Nº da nota<input id="nf-num" value="${esc(nf.numero)}" placeholder="opcional"></label>
+      <label class="f">Data da compra<input id="nf-data" type="date" value="${esc(nf.data)}" required></label>
+      <label class="f">Frete da nota<div class="unit"><input id="nf-frete" type="number" step="0.01" min="0" value="${nf.frete}"><span>R$</span></div></label>
+      <label class="f">Desconto da nota<div class="unit"><input id="nf-desc" type="number" step="0.01" min="0" value="${nf.desconto}"><span>R$</span></div></label>
+    </div><p class="hint" style="margin:8px 0 0;font-size:11px;color:var(--faint)">Frete e desconto são divididos entre os itens pelo valor de cada um, e entram no custo por unidade.</p></fieldset>
+    <fieldset class="fs"><legend>Produtos da nota</legend><div id="nf-itens" style="display:grid;gap:10px"></div>
+      <button type="button" class="btn sm" id="nf-add" style="margin-top:10px">+ Adicionar produto</button></fieldset>
+    <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar nota" : "Salvar alterações"}</button><span id="nf-tot" class="num" style="color:var(--muted);font-size:12px"></span></div>
+    </div></form>
+    <datalist id="dl-tipos">${tiposConhecidos().map(t => `<option value="${esc(t)}">`).join("")}</datalist>
+    <datalist id="dl-forn">${forns.map(t => `<option value="${esc(t)}">`).join("")}</datalist>
+    <datalist id="dl-marcas">${MARCAS.map(m => `<option value="${m}">`).join("")}</datalist>
+    <datalist id="dl-mat">${MATERIAIS.map(m => `<option value="${m}">`).join("")}</datalist>`;
+  const box = $("#nf-itens"), f = $("#nf-form");
+  const read = () => [...box.querySelectorAll(".nf-item")].map(el => { const g = k => el.querySelector(`[data-r="${k}"]`).value; const r = rows[+el.dataset.i] || {};
+    return { ...r, tipo: g("tipo").trim(), desc: g("desc").trim(), marca: g("marca").trim(), material: g("material").trim(), cor: g("cor").trim(), qtd: num(g("qtd")), un: g("un"), conv: num(g("conv")), uso: g("uso"), valorItem: num(g("valorItem")) }; });
+  const partes = lidas => {
+    const soma = lidas.reduce((s, r) => s + r.valorItem, 0) || 1, fr = num($("#nf-frete").value), ds = num($("#nf-desc").value);
+    return lidas.map(r => ({ frete: fr * r.valorItem / soma, desc: ds * r.valorItem / soma }));
+  };
+  const upd = () => {
+    const lidas = read(), ps = partes(lidas);
+    box.querySelectorAll(".nf-item").forEach((el, i) => {
+      const r = lidas[i], fil = ehFil(r), g = k => el.querySelector(`[data-r="${k}"]`);
+      g("uso").disabled = fil; if (fil) g("uso").value = "g";
+      g("conv-l").textContent = fil ? `Peso de cada ${r.un === "kg" ? "kg" : r.un}` : `Cada ${r.un} tem`;
+      const tot = r.qtd * (r.conv || 1), custo = r.valorItem + ps[i].frete - ps[i].desc;
+      g("conv-h").textContent = fil ? "em gramas (rolo de 1 kg = 1000)" : r.un === "un" ? "1 se compra por unidade" : `ex.: 1 ${r.un} com 100 un`;
+      g("res").textContent = !(tot > 0 && custo > 0) ? "" : fil ? `${q3(r.qtd)} ${r.un} = ${n2(tot / 1000, 2)} kg · ${brl(custo / tot * 1000)}/kg com frete`
+        : `${q3(r.qtd)} ${r.un} = ${q3(tot)} ${fil ? "g" : r.uso} · ${brl(custo / tot)} por ${r.uso}`;
+    });
+    const it = lidas.reduce((s, r) => s + r.valorItem, 0), fr = num($("#nf-frete").value), ds = num($("#nf-desc").value);
+    $("#nf-tot").textContent = `${lidas.length} ${lidas.length === 1 ? "produto" : "produtos"} · itens ${brl(it)}${fr ? ` + frete ${brl(fr)}` : ""}${ds ? ` − desconto ${brl(ds)}` : ""} = total ${brl(it + fr - ds)}`;
+  };
+  const draw = () => { box.innerHTML = rows.map((r, i) => nfItemHtml(r, i, rows.length)).join(""); upd(); };
+  box.addEventListener("change", e => {
+    const el = e.target.closest(".nf-item"); if (!el) return; const g = k => el.querySelector(`[data-r="${k}"]`);
+    // ao trocar para filamento ou para outro tipo, ajusta unidades padrão
+    if (e.target.dataset.r === "tipo") { const fil = ehFil({ tipo: g("tipo").value }); if (fil && g("uso").value !== "g") { g("un").value = "rolo"; g("conv").value = 1000; } if (!fil && g("uso").value === "g" && num(g("conv").value) === 1000) { g("un").value = "un"; g("conv").value = 1; g("uso").value = "un"; if (MATERIAIS.includes(g("material").value)) g("material").value = ""; } }
+    if (e.target.dataset.r === "un" && g("un").value === "un" && !ehFil({ tipo: g("tipo").value })) g("conv").value = 1;
+    upd();
+  });
+  f.addEventListener("input", upd);
+  box.addEventListener("click", e => { const b = e.target.closest("[data-r=del]"); if (!b) return; rows = read(); rows.splice(+b.closest(".nf-item").dataset.i, 1); draw(); });
+  $("#nf-add").addEventListener("click", () => { rows = read(); const ult = rows[rows.length - 1] || {}; rows.push({ ...novoItemNF(), ...(ult.tipo && !ehFil(ult) ? { tipo: "", material: "", un: "un", conv: 1, uso: "un" } : {}) }); draw(); box.lastElementChild.querySelector("[data-r=tipo]").focus(); });
+  $("#nf-close").addEventListener("click", () => slot.innerHTML = "");
+  f.addEventListener("submit", async e => {
+    e.preventDefault();
+    const lidas = read();
+    if (!lidas.length) { toast("Adicione pelo menos um produto"); return; }
+    const ps = partes(lidas), nfId = nf.nfId || uid("n"), forn = $("#nf-forn").value.trim(), F = garantirFornecedor(forn);
+    const fr = num($("#nf-frete").value), ds = num($("#nf-desc").value);
+    const docs = lidas.map((r, i) => {
+      const fil = ehFil(r), o = { ...(r.orig || {}) };
+      return { ...o, id: r.id || uid("c"), nfId, nfNum: $("#nf-num").value.trim(), data: $("#nf-data").value, fornecedor: forn, fornecedorId: F ? F.id : "", nfDesc: ds,
+        tipo: fil ? "Filamento" : (r.tipo || "Outro"), desc: r.desc, marca: r.marca, material: r.material, cor: r.cor, qtd: r.qtd, un: r.un, conv: r.conv || 1, uso: fil ? "g" : r.uso, peso: fil ? r.conv : 0,
+        valorItem: r.valorItem, valor: Math.round((r.valorItem - ps[i].desc) * 100) / 100, frete: Math.round(ps[i].frete * 100) / 100 };
+    });
+    // centavos que sobram do rateio vão para o último item
+    const last = docs[docs.length - 1];
+    last.frete = Math.round((last.frete + fr - docs.reduce((s, d) => s + d.frete, 0)) * 100) / 100;
+    last.valor = Math.round((last.valor + (lidas.reduce((s, r) => s + r.valorItem, 0) - ds) - docs.reduce((s, d) => s + d.valor, 0)) * 100) / 100;
+    for (const d of docs) await saveDoc("compras", d);
+    for (const c of itens || []) if (!docs.some(d => d.id === c.id)) await delDoc("compras", c.id);
+    slot.innerHTML = ""; toast(isNew ? `Nota salva com ${docs.length} ${docs.length === 1 ? "produto" : "produtos"}` : "Nota atualizada");
+  });
+  draw();
+  slot.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#nf-forn").focus({ preventScroll: true });
+}
+function renderNotas() {
+  const ns = notas();
+  $("#b-list").innerHTML = !ns.length ? `<div class="empty"><b>Nenhuma compra registrada</b>Use "+ Lançar nota ou compra" para filamentos, argolas, embalagens e tudo que entra.</div>` :
+    `<table class="list"><thead><tr><th>Data</th><th>Fornecedor e produtos</th><th class="r">Itens</th><th class="r">Total com frete</th><th></th></tr></thead><tbody>` +
+    ns.map(n => `<tr data-id="${esc(n.key)}"><td class="num">${fmtDate(n.data)}</td>
+      <td><div class="t1">${esc(n.fornecedor || "Sem fornecedor")}${n.numero ? ` <span class="t2">· NF ${esc(n.numero)}</span>` : ""}</div><div class="t2">${n.itens.map(c => `${esc(nomeItem(c))} (${q3(num(c.qtd))} ${esc(c.un || (ehFil(c) ? "rolo" : "un"))}${!ehFil(c) && num(c.conv) > 1 ? ` × ${q3(num(c.conv))} ${esc(c.uso || "un")}` : ""})`).join(" · ")}</div></td>
+      <td class="r num">${n.itens.length}</td><td class="r num">${brl(n.total)}</td>
+      <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button></span></td></tr>`).join("") + `</tbody></table>`;
+  const ins = insumos();
+  $("#b-insumos").innerHTML = !ins.length ? `<div class="empty"><b>Nenhum outro insumo</b>Argolas, ímãs, embalagens e outros itens lançados pela nota aparecem aqui com o custo por unidade.</div>` :
+    `<table class="list"><thead><tr><th>Item</th><th class="r">Comprado</th><th class="r">Usado</th><th class="r">Saldo</th><th class="r">Custo por unidade</th></tr></thead><tbody>` +
+    ins.map(e => { const low = e.saldo <= e.un * 0.1; return `<tr><td><div class="t1">${esc(e.desc || e.tipo)}</div><div class="t2">${esc([e.tipo, e.marca, e.material, e.cor].filter(Boolean).join(" · "))}</div></td>
+      <td class="r num">${q3(e.un)} ${esc(e.uso)}</td><td class="r num">${q3(e.usado)} ${esc(e.uso)}</td><td class="r num" style="${low ? "color:var(--bad);font-weight:600" : ""}">${q3(e.saldo)} ${esc(e.uso)}</td><td class="r num">${brl(e.custoUn)}</td></tr>`; }).join("") + `</tbody></table>`;
+}
+$("#b-list").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return; const n = notas().find(x => x.key === b.closest("tr[data-id]").dataset.id); if (!n) return;
+  if (b.dataset.act === "edit") openNotaForm(n.itens);
+  if (b.dataset.act === "del") inlineConfirm(b, async () => { for (const c of n.itens) await delDoc("compras", c.id); toast(n.itens.length > 1 ? "Nota excluída" : "Compra excluída"); });
+});
+
+/* ---------- fornecedores ---------- */
+function fornecedorPorNome(nome) { const k = chaveNome(nome); return k ? state.fornecedores.find(f => chaveNome(f.nome) === k) : null; }
+function garantirFornecedor(nome) {
+  nome = nomeFornecedor(nome); if (!chaveNome(nome)) return null;
+  let f = fornecedorPorNome(nome);
+  if (!f) { f = { id: uid("f"), nome, doc: "", contato: "", email: "", site: "", cidade: "", fornece: "", obs: "", criado: today() }; saveDoc("fornecedores", f); }
+  return f;
+}
+let foAberto = "";
+function renderFornecedores() {
+  const q = chaveNome($("#fo-busca").value), ns = notas();
+  const extras = [...new Set(ns.map(n => n.fornecedor).filter(n => n && !fornecedorPorNome(n)))].map(n => ({ id: "v:" + n, nome: n, virtual: true }));
+  let list = [...state.fornecedores, ...extras].map(f => { const nf = ns.filter(n => chaveNome(n.fornecedor) === chaveNome(f.nome)); return { ...f, nf, total: nf.reduce((s, n) => s + n.total, 0), ultimo: nf[0] ? nf[0].data : "" }; });
+  if (q) list = list.filter(f => chaveNome([f.nome, f.contato, f.cidade, f.fornece, f.doc].join(" ")).includes(q));
+  list.sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+  if (!list.length) { $("#fo-list").innerHTML = `<div class="empty"><b>${state.fornecedores.length || extras.length ? "Nenhum fornecedor com esse nome" : "Nenhum fornecedor ainda"}</b>Eles aparecem aqui quando você lança uma nota, ou use "+ Novo fornecedor".</div>`; return; }
+  $("#fo-list").innerHTML = `<table class="list"><thead><tr><th>Fornecedor</th><th>Contato</th><th class="r">Notas</th><th class="r">Total comprado</th><th>Última compra</th><th></th></tr></thead><tbody>` +
+    list.map(f => `<tr data-id="${esc(f.id)}"><td><div class="t1">${esc(f.nome)}</div><div class="t2">${f.virtual ? "não cadastrado" : esc([f.fornece, f.cidade].filter(Boolean).join(" · "))}</div></td>
+      <td>${esc([f.contato, f.email].filter(Boolean).join(" · ") || "—")}${f.site ? `<div class="t2">${esc(f.site)}</div>` : ""}</td><td class="r num">${f.nf.length}</td><td class="r num">${brl(f.total)}</td><td class="num">${fmtDate(f.ultimo)}</td>
+      <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm" data-act="hist">${foAberto === f.id ? "Fechar" : "Notas"}</button><button class="btn sm" data-act="nota">Nova nota</button>${f.virtual ? `<button class="btn sm" data-act="cad">Cadastrar</button>` : `<button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button>`}</span></td></tr>
+      ${foAberto === f.id ? `<tr><td colspan="6" style="background:var(--surface-2)">${f.nf.length ? `<table class="mtable"><tr><th>Data</th><th>Nota</th><th>Produtos</th><th>Total</th></tr>${f.nf.map(n => `<tr><td>${fmtDate(n.data)}</td><td>${esc(n.numero || "—")}</td><td>${n.itens.map(c => esc(nomeItem(c))).join(", ")}</td><td>${brl(n.total)}</td></tr>`).join("")}</table>` : `<span class="t2">Nenhuma nota ainda.</span>`}${f.obs ? `<p class="t2" style="margin:8px 0 0">${esc(f.obs)}</p>` : ""}</td></tr>` : ""}`).join("") + `</tbody></table>`;
+}
+$("#fo-busca").addEventListener("input", renderFornecedores);
+$("#fo-new").addEventListener("click", () => openFornecedorForm());
+$("#fo-list").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return; const id = b.closest("tr[data-id]").dataset.id;
+  const virtual = id.startsWith("v:"); const f = virtual ? { nome: id.slice(2) } : state.fornecedores.find(x => x.id === id); if (!f) return;
+  if (b.dataset.act === "hist") { foAberto = foAberto === id ? "" : id; renderFornecedores(); }
+  if (b.dataset.act === "nota") { go("compras"); openNotaForm(null, { fornecedor: f.nome }); }
+  if (b.dataset.act === "cad") openFornecedorForm({ nome: f.nome });
+  if (b.dataset.act === "edit") openFornecedorForm(f);
+  if (b.dataset.act === "del") inlineConfirm(b, () => { delDoc("fornecedores", f.id); toast("Fornecedor excluído (as notas continuam)"); });
+});
+function openFornecedorForm(f) {
+  const isNew = !f || !f.id;
+  f = { id: "", nome: "", doc: "", contato: "", email: "", site: "", cidade: "", fornece: "", obs: "", ...(f || {}) };
+  const slot = $("#fo-form-slot");
+  slot.innerHTML = `<form class="drawer" id="ff-form" autocomplete="off">
+    <div class="panel-h"><h3>${isNew ? "Novo fornecedor" : "Editar fornecedor"}</h3><button type="button" class="btn ghost sm" id="ff-close">Fechar</button></div>
+    <div class="panel-b"><div class="fields">
+      <label class="f" style="grid-column:span 2">Nome ou razão social<input id="ff-nome" required value="${esc(f.nome)}"></label>
+      <label class="f">CNPJ ou CPF<input id="ff-doc" value="${esc(f.doc)}" inputmode="numeric"></label>
+      <label class="f">WhatsApp ou telefone<input id="ff-contato" value="${esc(f.contato)}"></label>
+      <label class="f">E-mail<input id="ff-email" type="email" value="${esc(f.email)}"></label>
+      <label class="f">Site ou loja online<input id="ff-site" value="${esc(f.site)}" placeholder="Mercado Livre, Shopee, site…"></label>
+      <label class="f">Cidade / UF<input id="ff-cidade" value="${esc(f.cidade)}"></label>
+      <label class="f">O que fornece<input id="ff-fornece" value="${esc(f.fornece)}" placeholder="Filamento, argolas, embalagens…"></label>
+      <label class="f" style="grid-column:1/-1">Observações<textarea id="ff-obs" placeholder="Prazo de entrega, pedido mínimo, vendedor…">${esc(f.obs)}</textarea></label>
+    </div>
+    <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar fornecedor" : "Salvar alterações"}</button></div></div></form>`;
+  $("#ff-close").addEventListener("click", () => slot.innerHTML = "");
+  $("#ff-form").addEventListener("submit", e => {
+    e.preventDefault();
+    const nome = $("#ff-nome").value.trim(), dup = fornecedorPorNome(nome);
+    if (dup && dup.id !== f.id) { toast("Já existe um fornecedor com esse nome"); return; }
+    const antigo = f.nome, id = f.id || uid("f");
+    const v = k => $("#ff-" + k).value.trim();
+    saveDoc("fornecedores", { ...f, id, nome, doc: v("doc"), contato: v("contato"), email: v("email"), site: v("site"), cidade: v("cidade"), fornece: v("fornece"), obs: $("#ff-obs").value, criado: f.criado || today() });
+    // renomear também nas notas
+    if (antigo && chaveNome(antigo) !== chaveNome(nome)) state.compras.filter(c => chaveNome(nomeFornecedor(c.fornecedor)) === chaveNome(antigo)).forEach(c => saveDoc("compras", { ...c, fornecedor: nome, nfNum: numeroNF(c), fornecedorId: id }));
+    slot.innerHTML = ""; toast(isNew ? "Fornecedor salvo" : "Fornecedor atualizado");
+  });
+  slot.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#ff-nome").focus({ preventScroll: true });
+}
+
 /* ---------- render ---------- */
 function renderAll() {
   aplicarMarca();
-  renderOrders(); renderPecas(); renderPanel(); renderBuys(); renderProdutos(); renderClientes(); fillPedidoSelect();
+  renderOrders(); renderPecas(); renderPanel(); renderBuys(); renderProdutos(); renderClientes(); renderFornecedores(); fillPedidoSelect();
   if ($("#c-mats").refresh) $("#c-mats").refresh();
+  if ($("#c-ins").refresh) $("#c-ins").refresh();
   calcUpdate();
 }
 lsLoad();
