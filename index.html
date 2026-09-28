@@ -218,6 +218,7 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
       <button role="tab" data-tab="produtos">Produtos</button>
       <button role="tab" data-tab="clientes">Cadastros</button>
       <button role="tab" data-tab="compras">Compras e estoque</button>
+      <button role="tab" data-tab="financeiro">Financeiro</button>
       <button role="tab" data-tab="config">Parâmetros de custo</button>
     </nav>
   </div>
@@ -358,6 +359,19 @@ select.status{width:auto;padding:4px 8px;font-size:12px}
   <div class="panel"><div class="panel-h"><h3>Notas e compras</h3></div><div class="tbl-wrap" id="b-list"></div></div>
 </section>
 
+<!-- ================= FINANCEIRO ================= -->
+<section class="view" id="v-financeiro" hidden>
+  <div class="head-row">
+    <div><div class="eyebrow">Dinheiro</div><h2>Contas a pagar e a receber</h2>
+    <p class="sub">O que sai e o que entra. Pedidos aprovados, prontos ou entregues sem pagamento entram em "a receber" sozinhos; notas fiscais compradas a prazo viram parcelas a pagar.</p></div>
+    <div class="actions"><button class="btn" id="fi-new-rec">+ Conta a receber</button><button class="btn pri" id="fi-new">+ Nova conta a pagar</button></div>
+  </div>
+  <div class="kpis" id="fi-kpis"></div>
+  <div id="fi-form-slot"></div>
+  <div class="panel"><div class="panel-h"><h3>Contas a pagar</h3><div class="filters" id="fi-filtros"></div></div><div class="tbl-wrap" id="fi-pagar"></div></div>
+  <div class="panel"><div class="panel-h"><h3>Contas a receber</h3><span class="eyebrow">sinal já recebido é descontado</span></div><div class="tbl-wrap" id="fi-receber"></div></div>
+</section>
+
 <!-- ================= CONFIG ================= -->
 <section class="view" id="v-config" hidden>
   <div class="head-row">
@@ -476,8 +490,8 @@ const TIPOS = ["Filamento","Peça de reposição","Embalagem","Outro"];
 const COLORS = ["var(--accent)","var(--info)","var(--warn)","#7C5CC4","var(--price)","#6B7F80","var(--bad)","#B07D48"];
 
 /* ---------- estado ---------- */
-const COLS = ["pedidos", "compras", "produtos", "clientes", "fornecedores"];
-const state = { pedidos: [], compras: [], produtos: [], clientes: [], fornecedores: [], config: { ...DEFAULTS } };
+const COLS = ["pedidos", "compras", "produtos", "clientes", "fornecedores", "contas"];
+const state = { pedidos: [], compras: [], produtos: [], clientes: [], fornecedores: [], contas: [], config: { ...DEFAULTS } };
 let db = null, mode = "local";
 const LS = "oficinaA1.v1";
 /* Supabase (versão do site): preencha para compartilhar os dados entre computadores */
@@ -856,7 +870,8 @@ function openOrderForm(p) {
     <fieldset class="fs"><legend>Venda</legend><div class="fields">
       <label class="f">Preço cobrado por peça<div class="unit"><input id="of-preco" type="number" step="0.01" value="${p.preco || ""}"><span>R$</span></div><span class="hint" id="of-sug"></span></label>
       <label class="f">Status<select id="of-status">${STATUS.map(([k, l]) => `<option value="${k}" ${k === p.status ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label class="f" style="align-content:end"><span style="display:flex;gap:8px;align-items:center;padding:9px 0"><input type="checkbox" id="of-pago" ${p.pago ? "checked" : ""}> Pagamento recebido</span></label>
+      <label class="f">Sinal / entrada recebida<div class="unit"><input id="of-sinal" type="number" step="0.01" min="0" value="${num(p.sinal) || ""}"><span>R$</span></div><span class="hint">o resto fica em contas a receber</span></label>
+      <label class="f" style="align-content:end"><span style="display:flex;gap:8px;align-items:center;padding:9px 0"><input type="checkbox" id="of-pago" ${p.pago ? "checked" : ""}> Pagamento recebido (tudo)</span></label>
       <label class="f" style="grid-column:1/-1">Observações<textarea id="of-obs">${esc(p.obs)}</textarea></label>
     </div></fieldset>
     <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar pedido" : "Salvar alterações"}</button><button type="button" class="btn" id="of-usar">Usar preço sugerido</button>${isNew ? "" : `<button type="button" class="btn" id="of-orc">Orçamento</button>`}<span id="of-resumo" class="num" style="color:var(--muted);font-size:12px"></span></div>
@@ -910,7 +925,7 @@ function openOrderForm(p) {
     if (origem && !p.id) { const L = lote(); if (L) { x.mats = matsDe(L).map(m => ({ ...m })); } }
     const L0 = origem ? state.pedidos.find(o => o.id === origem) : null;
     const produtoId = L0 ? (L0.produtoId || "") : $("#of-prod").value;
-    const obj = { ...p, ...x, produtoId, estoque: est, origem, matKey: x.mats[0].matKey, precoKg: x.mats[0].precoKg, g: r.gTot, id: p.id || uid("p"), cliente: est ? "Estoque" : $("#of-cliente").value.trim(), contato: $("#of-contato").value.trim(), data: $("#of-data").value, entrega: $("#of-entrega").value, desc: $("#of-desc").value.trim(), preco: num($("#of-preco").value), status: $("#of-status").value, pago: $("#of-pago").checked, obs: $("#of-obs").value, custo: r.custo, atualizado: new Date().toISOString() };
+    const obj = { ...p, ...x, produtoId, estoque: est, origem, matKey: x.mats[0].matKey, precoKg: x.mats[0].precoKg, g: r.gTot, id: p.id || uid("p"), cliente: est ? "Estoque" : $("#of-cliente").value.trim(), contato: $("#of-contato").value.trim(), data: $("#of-data").value, entrega: $("#of-entrega").value, desc: $("#of-desc").value.trim(), preco: num($("#of-preco").value), status: $("#of-status").value, pago: $("#of-pago").checked, sinal: num($("#of-sinal").value), pagoEm: $("#of-pago").checked ? (p.pagoEm || today()) : "", obs: $("#of-obs").value, custo: r.custo, atualizado: new Date().toISOString() };
     if (obj.status === "ent" && !obj.entregueEm) obj.entregueEm = today();
     saveDoc("pedidos", obj); if (!est) garantirCliente(obj.cliente, obj.contato);
     slot.innerHTML = ""; toast(isNew ? "Pedido salvo" : "Pedido atualizado");
@@ -960,7 +975,7 @@ function renderOrders() {
 $("#o-list").addEventListener("change", e => {
   const tr = e.target.closest("tr[data-id]"); if (!tr) return; const p = state.pedidos.find(x => x.id === tr.dataset.id); if (!p) return;
   if (e.target.dataset.act === "status") { saveDoc("pedidos", { ...p, status: e.target.value, atualizado: new Date().toISOString(), ...(e.target.value === "ent" && !p.entregueEm ? { entregueEm: today() } : {}) }); toast("Status: " + STATUS_LBL[e.target.value]); }
-  if (e.target.dataset.act === "pago") saveDoc("pedidos", { ...p, pago: e.target.checked });
+  if (e.target.dataset.act === "pago") saveDoc("pedidos", { ...p, pago: e.target.checked, pagoEm: e.target.checked ? today() : "" });
 });
 $("#o-list").addEventListener("click", e => {
   const b = e.target.closest("[data-act]"); if (!b) return; const tr = b.closest("tr[data-id]"); const p = state.pedidos.find(x => x.id === tr.dataset.id); if (!p) return;
@@ -1191,9 +1206,10 @@ function renderAlertas() {
   const c = cfg(), itens = [];
   estoque().filter(e => e.saldo < num(c.alertaG)).forEach(e => itens.push(`Filamento <b>${esc([e.marca, e.material, e.cor].filter(Boolean).join(" "))}</b>: ${e.saldo > 0 ? `restam ${n2(e.saldo, 0)} g` : "acabou"}`));
   insumos().filter(e => e.saldo <= e.un * 0.1).forEach(e => itens.push(`Insumo <b>${esc(insNome(e))}</b>: ${e.saldo > 0 ? `restam ${q3(e.saldo)} ${esc(e.uso)}` : "acabou"}`));
+  aPagar().filter(x => !x.pago && diasAte(x.venc) <= 3).sort((a, b) => a.venc.localeCompare(b.venc)).forEach(x => { const d = diasAte(x.venc); itens.push(`Conta <b>${esc(x.desc)}</b> de ${brl(num(x.valor))}: ${d < 0 ? `venceu em ${fmtDate(x.venc)}` : d === 0 ? "vence hoje" : `vence em ${fmtDate(x.venc)}`}`); });
   lotes().filter(l => l.saldo > 0 && l.saldo <= num(c.alertaPecas)).forEach(l => itens.push(`Peça pronta <b>${esc(l.desc)}</b>: ${l.saldo === 1 ? "resta 1" : `restam ${n2(l.saldo, 0)}`} no estoque`));
   const box = $("#p-alertas"); box.hidden = !itens.length;
-  box.innerHTML = itens.length ? `<div class="panel-h"><h3>Estoque baixo</h3><button class="btn ghost sm" data-go="compras">Ver estoque</button></div><div class="panel-b"><ul style="margin:0;padding-left:18px">${itens.map(i => `<li>${i}</li>`).join("")}</ul></div>` : "";
+  box.innerHTML = itens.length ? `<div class="panel-h"><h3>Atenção</h3><span class="actions"><button class="btn ghost sm" data-go="financeiro">Financeiro</button><button class="btn ghost sm" data-go="compras">Ver estoque</button></span></div><div class="panel-b"><ul style="margin:0;padding-left:18px">${itens.map(i => `<li>${i}</li>`).join("")}</ul></div>` : "";
 }
 function renderPanel() {
   renderAlertas();
@@ -1205,7 +1221,7 @@ function renderPanel() {
   const tot = p => num(p.preco) * num(p.qtd || 1);
   const luc = p => (num(p.preco) * (1 - num(p.taxa) / 100) - num(p.custo)) * num(p.qtd || 1);
   const entMes = ped.filter(p => p.status === "ent" && (p.entregueEm || p.entrega || p.data || "").startsWith(ym));
-  const receber = ped.filter(p => (p.status === "pro" || p.status === "ent") && !p.pago);
+  const receber = recebiveis();
   const compMes = state.compras.filter(b => (b.data || "").startsWith(ym));
   const kg = estoque().reduce((s, e) => s + Math.max(0, e.saldo), 0) / 1000;
   const k = [
@@ -1213,7 +1229,7 @@ function renderPanel() {
     ["Orçamentos", orc.length, brl(orc.reduce((s, p) => s + tot(p), 0)) + " aguardando cliente"],
     ["Faturado no mês", brl(entMes.reduce((s, p) => s + tot(p), 0)), entMes.length + " pedidos entregues"],
     ["Lucro no mês", brl(entMes.reduce((s, p) => s + luc(p), 0)), "depois de todos os custos"],
-    ["A receber", brl(receber.reduce((s, p) => s + tot(p), 0)), receber.length + " prontos ou entregues sem pagamento"],
+    ["A receber", brl(receber.reduce((s, x) => s + x.falta, 0)), receber.length + " pedidos e contas em aberto"],
     ["Compras no mês", brl(compMes.reduce((s, b) => s + num(b.valor) + num(b.frete), 0)), n2(kg, 2) + " kg de filamento em estoque"]
   ];
   $("#p-kpis").innerHTML = k.map(x => `<div class="kpi"><span class="eyebrow">${x[0]}</span><span class="v">${x[1]}</span><span class="d">${x[2]}</span></div>`).join("");
@@ -1655,6 +1671,8 @@ function openNotaForm(itens, preset) {
   const a = isNew ? {} : itens[0];
   const nf = { nfId: a.nfId || "", numero: isNew ? "" : numeroNF(a), data: a.data || today(), fornecedor: nomeFornecedor(a.fornecedor), frete: isNew ? 0 : Math.round(itens.reduce((s, c) => s + num(c.frete), 0) * 100) / 100, desconto: num(a.nfDesc), ...(preset || {}) };
   let rows = isNew ? [novoItemNF()] : itens.map(itemParaForm);
+  const ctNF = nf.nfId ? state.contas.filter(c => c.nfId === nf.nfId).sort((x, y) => x.venc.localeCompare(y.venc)) : [];
+  const pg0 = ctNF.length ? { modo: "prazo", venc: ctNF[0].venc, n: ctNF.length } : { modo: "pago", venc: addMes(nf.data, 1), n: 1 };
   const slot = $("#b-form-slot");
   const forns = [...new Set([...state.fornecedores.map(f => f.nome), ...notas().map(n => n.fornecedor)].filter(Boolean))].sort();
   slot.innerHTML = `<form class="drawer" id="nf-form" autocomplete="off">
@@ -1669,6 +1687,11 @@ function openNotaForm(itens, preset) {
     </div><p class="hint" style="margin:8px 0 0;font-size:11px;color:var(--faint)">Frete e desconto são divididos entre os itens pelo valor de cada um, e entram no custo por unidade.</p></fieldset>
     <fieldset class="fs"><legend>Produtos da nota</legend><div id="nf-itens" style="display:grid;gap:10px"></div>
       <button type="button" class="btn sm" id="nf-add" style="margin-top:10px">+ Adicionar produto</button></fieldset>
+    <fieldset class="fs"><legend>Pagamento</legend><div class="fields">
+      <label class="f">Forma<select id="nf-pgmodo"><option value="pago" ${pg0.modo === "pago" ? "selected" : ""}>Já paga (à vista, Pix, cartão)</option><option value="prazo" ${pg0.modo === "prazo" ? "selected" : ""}>A pagar (boleto, a prazo)</option></select></label>
+      <label class="f nf-prazo">1º vencimento<input id="nf-pgvenc" type="date" value="${esc(pg0.venc)}"></label>
+      <label class="f nf-prazo">Parcelas<div class="unit"><input id="nf-pgn" type="number" step="1" min="1" max="24" value="${pg0.n}"><span>x</span></div></label>
+    </div><p class="hint nf-prazo" style="margin:8px 0 0;font-size:11px;color:var(--faint)">As parcelas aparecem em Financeiro → Contas a pagar.</p></fieldset>
     <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar nota" : "Salvar alterações"}</button><span id="nf-tot" class="num" style="color:var(--muted);font-size:12px"></span></div>
     </div></form>
     <datalist id="dl-tipos">${tiposConhecidos().map(t => `<option value="${esc(t)}">`).join("")}</datalist>
@@ -1693,6 +1716,7 @@ function openNotaForm(itens, preset) {
       g("res").textContent = !(tot > 0 && custo > 0) ? "" : fil ? `${q3(r.qtd)} ${r.un} = ${n2(tot / 1000, 2)} kg · ${brl(custo / tot * 1000)}/kg com frete`
         : `${q3(r.qtd)} ${r.un} = ${q3(tot)} ${fil ? "g" : r.uso} · ${brl(custo / tot)} por ${r.uso}`;
     });
+    f.querySelectorAll(".nf-prazo").forEach(el => el.hidden = $("#nf-pgmodo").value !== "prazo");
     const it = lidas.reduce((s, r) => s + r.valorItem, 0), fr = num($("#nf-frete").value), ds = num($("#nf-desc").value);
     $("#nf-tot").textContent = `${lidas.length} ${lidas.length === 1 ? "produto" : "produtos"} · itens ${brl(it)}${fr ? ` + frete ${brl(fr)}` : ""}${ds ? ` − desconto ${brl(ds)}` : ""} = total ${brl(it + fr - ds)}`;
   };
@@ -1725,6 +1749,7 @@ function openNotaForm(itens, preset) {
     last.frete = Math.round((last.frete + fr - docs.reduce((s, d) => s + d.frete, 0)) * 100) / 100;
     last.valor = Math.round((last.valor + (lidas.reduce((s, r) => s + r.valorItem, 0) - ds) - docs.reduce((s, d) => s + d.valor, 0)) * 100) / 100;
     for (const d of docs) await saveDoc("compras", d);
+    await salvarPagamentoNota(nfId, forn, $("#nf-num").value.trim(), Math.round((lidas.reduce((s, r) => s + r.valorItem, 0) + fr - ds) * 100) / 100, { modo: $("#nf-pgmodo").value, venc: $("#nf-pgvenc").value || addMes($("#nf-data").value, 1), n: num($("#nf-pgn").value) || 1 });
     for (const c of itens || []) if (!docs.some(d => d.id === c.id)) await delDoc("compras", c.id);
     slot.innerHTML = ""; toast(isNew ? `Nota salva com ${docs.length} ${docs.length === 1 ? "produto" : "produtos"}` : "Nota atualizada");
   });
@@ -1749,7 +1774,7 @@ function renderNotas() {
 $("#b-list").addEventListener("click", e => {
   const b = e.target.closest("[data-act]"); if (!b) return; const n = notas().find(x => x.key === b.closest("tr[data-id]").dataset.id); if (!n) return;
   if (b.dataset.act === "edit") openNotaForm(n.itens);
-  if (b.dataset.act === "del") inlineConfirm(b, async () => { for (const c of n.itens) await delDoc("compras", c.id); toast(n.itens.length > 1 ? "Nota excluída" : "Compra excluída"); });
+  if (b.dataset.act === "del") inlineConfirm(b, async () => { for (const c of n.itens) await delDoc("compras", c.id); for (const c of state.contas.filter(x => x.nfId && n.itens.some(i => i.nfId === x.nfId))) await delDoc("contas", c.id); toast(n.itens.length > 1 ? "Nota excluída" : "Compra excluída"); });
 });
 
 /* ---------- fornecedores ---------- */
@@ -1818,10 +1843,131 @@ function openFornecedorForm(f) {
   $("#ff-nome").focus({ preventScroll: true });
 }
 
+/* ---------- financeiro: contas a pagar e a receber ---------- */
+const CATEGORIAS = ["Filamento e insumos", "Energia", "Internet", "Aluguel", "MEI / DAS", "Manutenção", "Embalagens", "Marketing", "Taxas e tarifas", "Outros"];
+const addMes = (d, k) => { const [y, m, dd] = (d || today()).split("-").map(Number); const last = new Date(y, m - 1 + k + 1, 0).getDate(); const x = new Date(y, m - 1 + k, Math.min(dd, last)); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+const diasAte = d => Math.round((new Date(d + "T12:00") - new Date(today() + "T12:00")) / 864e5);
+const totalPedido = p => num(p.preco) * num(p.qtd || 1);
+const faltaReceber = p => p.pago ? 0 : Math.max(0, totalPedido(p) - num(p.sinal));
+/* a receber: pedidos aprovados em diante, não cancelados, com valor em aberto, mais contas lançadas à mão */
+function recebiveis() {
+  const ped = state.pedidos.filter(p => !p.estoque && p.status !== "orc" && p.status !== "can" && faltaReceber(p) > 0)
+    .map(p => ({ id: p.id, pedido: true, desc: p.desc, quem: p.cliente, venc: p.entrega || p.data || "", valor: totalPedido(p), sinal: num(p.sinal), falta: faltaReceber(p), status: p.status }));
+  const man = state.contas.filter(c => c.tipo === "receber" && !c.pago).map(c => ({ id: c.id, pedido: false, desc: c.desc, quem: c.pessoa, venc: c.venc, valor: num(c.valor), sinal: 0, falta: num(c.valor), cat: c.categoria }));
+  return [...ped, ...man].sort((a, b) => (a.venc || "9999").localeCompare(b.venc || "9999"));
+}
+const aPagar = () => state.contas.filter(c => c.tipo !== "receber");
+let fFiltro = "abertas";
+function situacao(c) { if (c.pago) return ["Paga", "s-ent"]; const d = diasAte(c.venc); return d < 0 ? ["Vencida", "s-can"] : d === 0 ? ["Vence hoje", "s-imp"] : d <= 7 ? [`Vence em ${d} ${d === 1 ? "dia" : "dias"}`, "s-apr"] : ["Em aberto", "s-orc"]; }
+function renderFinanceiro() {
+  const ps = aPagar(), abertas = ps.filter(c => !c.pago), rc = recebiveis();
+  const venc = abertas.filter(c => diasAte(c.venc) < 0), prox = abertas.filter(c => diasAte(c.venc) >= 0 && diasAte(c.venc) <= 30);
+  const ym = today().slice(0, 7), pagoMes = ps.filter(c => c.pago && (c.pagoEm || "").startsWith(ym));
+  const sum = (a, k = "valor") => a.reduce((s, x) => s + num(x[k]), 0);
+  const aRec = sum(rc, "falta"), aPag = sum(abertas);
+  $("#fi-kpis").innerHTML = [
+    ["A pagar vencido", brl(sum(venc)), `${venc.length} ${venc.length === 1 ? "conta" : "contas"}`, venc.length ? "var(--bad)" : ""],
+    ["A pagar em 30 dias", brl(sum(prox)), `${prox.length} ${prox.length === 1 ? "conta" : "contas"}`, ""],
+    ["A receber", brl(aRec), `${rc.length} ${rc.length === 1 ? "lançamento" : "lançamentos"}`, ""],
+    ["Saldo previsto", brl(aRec - aPag), "tudo a receber menos tudo a pagar", aRec - aPag < 0 ? "var(--bad)" : "var(--ok)"],
+    ["Pago no mês", brl(sum(pagoMes)), `${pagoMes.length} ${pagoMes.length === 1 ? "conta paga" : "contas pagas"}`, ""]
+  ].map(x => `<div class="kpi"><span class="eyebrow">${x[0]}</span><span class="v" style="${x[3] ? "color:" + x[3] : ""}">${x[1]}</span><span class="d">${x[2]}</span></div>`).join("");
+  const filtros = [["abertas", "Em aberto", abertas], ["vencidas", "Vencidas", venc], ["pagas", "Pagas", ps.filter(c => c.pago)], ["todas", "Todas", ps]];
+  $("#fi-filtros").innerHTML = filtros.map(([k, l, a]) => `<button class="chip" data-f="${k}" aria-pressed="${k === fFiltro}">${l} <span class="num">${a.length}</span></button>`).join("");
+  const list = (filtros.find(f => f[0] === fFiltro) || filtros[0])[2].slice().sort((a, b) => fFiltro === "pagas" ? (b.pagoEm || "").localeCompare(a.pagoEm || "") : (a.venc || "").localeCompare(b.venc || ""));
+  $("#fi-pagar").innerHTML = !list.length ? `<div class="empty"><b>${ps.length ? "Nada neste filtro" : "Nenhuma conta a pagar"}</b>Lance contas como energia, internet e MEI em "+ Nova conta", ou marque "A pagar" ao lançar uma nota fiscal.</div>` :
+    `<table class="list"><thead><tr><th>Vencimento</th><th>Conta</th><th class="r">Valor</th><th>Situação</th><th></th></tr></thead><tbody>` +
+    list.map(c => { const [st, cls] = situacao(c); return `<tr data-id="${esc(c.id)}"><td class="num">${fmtDate(c.venc)}</td>
+      <td><div class="t1">${esc(c.desc)}${c.parcela ? ` <span class="t2">· parcela ${esc(c.parcela)}</span>` : ""}</div><div class="t2">${esc([c.categoria, c.pessoa].filter(Boolean).join(" · "))}</div></td>
+      <td class="r num">${brl(num(c.valor))}</td><td><span class="pill ${cls}">${st}</span>${c.pago ? `<div class="t2">em ${fmtDate(c.pagoEm)}</div>` : ""}</td>
+      <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap">${c.pago ? `<button class="btn sm" data-act="desfaz">Desfazer</button>` : `<button class="btn sm pri" data-act="paga">Pagar</button>`}<button class="btn sm" data-act="edit">Editar</button><button class="btn sm ghost danger" data-act="del">Excluir</button></span></td></tr>`; }).join("") + `</tbody></table>`;
+  $("#fi-receber").innerHTML = !rc.length ? `<div class="empty"><b>Nada a receber</b>Pedidos aprovados, prontos ou entregues sem pagamento aparecem aqui sozinhos.</div>` :
+    `<table class="list"><thead><tr><th>Previsão</th><th>Cliente e pedido</th><th class="r">Total</th><th class="r">Sinal</th><th class="r">Falta receber</th><th></th></tr></thead><tbody>` +
+    rc.map(r => { const atras = r.venc && diasAte(r.venc) < 0; return `<tr data-id="${esc(r.id)}" data-ped="${r.pedido ? 1 : ""}"><td class="num" style="${atras ? "color:var(--bad);font-weight:600" : ""}">${fmtDate(r.venc)}</td>
+      <td><div class="t1">${esc(r.quem || "—")}</div><div class="t2">${esc(r.desc)}${r.pedido ? ` · ${esc(STATUS_LBL[r.status] || "")}` : r.cat ? ` · ${esc(r.cat)}` : ""}</div></td>
+      <td class="r num">${brl(r.valor)}</td><td class="r num">${r.sinal ? brl(r.sinal) : "—"}</td><td class="r num" style="font-weight:600">${brl(r.falta)}</td>
+      <td class="r"><span class="actions" style="justify-content:flex-end;flex-wrap:nowrap"><button class="btn sm pri" data-act="recebe">Recebido</button><button class="btn sm" data-act="edit">${r.pedido ? "Abrir pedido" : "Editar"}</button></span></td></tr>`; }).join("") + `</tbody></table>`;
+}
+$("#fi-filtros").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; fFiltro = b.dataset.f; renderFinanceiro(); });
+$("#fi-pagar").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return; const c = state.contas.find(x => x.id === b.closest("tr[data-id]").dataset.id); if (!c) return;
+  if (b.dataset.act === "paga") { saveDoc("contas", { ...c, pago: true, pagoEm: today() }); toast("Conta paga"); }
+  if (b.dataset.act === "desfaz") saveDoc("contas", { ...c, pago: false, pagoEm: "" });
+  if (b.dataset.act === "edit") openContaForm(c);
+  if (b.dataset.act === "del") inlineConfirm(b, () => { delDoc("contas", c.id); toast("Conta excluída"); });
+});
+$("#fi-receber").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return; const tr = b.closest("tr[data-id]"); const id = tr.dataset.id;
+  if (tr.dataset.ped) { const p = state.pedidos.find(x => x.id === id); if (!p) return;
+    if (b.dataset.act === "recebe") { saveDoc("pedidos", { ...p, pago: true, pagoEm: today() }); toast("Pagamento recebido"); }
+    if (b.dataset.act === "edit") { go("pedidos"); openOrderForm(p); } return; }
+  const c = state.contas.find(x => x.id === id); if (!c) return;
+  if (b.dataset.act === "recebe") { saveDoc("contas", { ...c, pago: true, pagoEm: today() }); toast("Recebido"); }
+  if (b.dataset.act === "edit") openContaForm(c);
+});
+$("#fi-new").addEventListener("click", () => openContaForm());
+$("#fi-new-rec").addEventListener("click", () => openContaForm({ tipo: "receber" }));
+function openContaForm(c) {
+  const isNew = !c || !c.id;
+  c = { id: "", tipo: "pagar", desc: "", categoria: "", pessoa: "", valor: "", venc: today(), pago: false, pagoEm: "", obs: "", ...(c || {}) };
+  const rec = c.tipo === "receber";
+  const pessoas = rec ? state.clientes.map(x => x.nome) : [...new Set([...state.fornecedores.map(f => f.nome), ...aPagar().map(x => x.pessoa)].filter(Boolean))];
+  const slot = $("#fi-form-slot");
+  slot.innerHTML = `<form class="drawer" id="ct-form" autocomplete="off">
+    <div class="panel-h"><h3>${isNew ? (rec ? "Nova conta a receber" : "Nova conta a pagar") : "Editar conta"}</h3><button type="button" class="btn ghost sm" id="ct-close">Fechar</button></div>
+    <div class="panel-b"><div class="fields">
+      <label class="f" style="grid-column:span 2">Descrição<input id="ct-desc" required value="${esc(c.desc)}" placeholder="${rec ? "Ex.: venda na feira" : "Ex.: conta de luz"}"></label>
+      <label class="f">Categoria<input id="ct-cat" list="dl-cat" value="${esc(c.categoria)}"></label>
+      <label class="f">${rec ? "Cliente" : "Fornecedor ou empresa"}<input id="ct-pessoa" list="dl-pessoa" value="${esc(c.pessoa)}"></label>
+      <label class="f">${isNew ? "Valor total" : "Valor"}<div class="unit"><input id="ct-valor" type="number" step="0.01" min="0" required value="${c.valor}"><span>R$</span></div></label>
+      <label class="f">${isNew ? "1º vencimento" : "Vencimento"}<input id="ct-venc" type="date" required value="${esc(c.venc)}"></label>
+      ${isNew ? `<label class="f">Repetir<select id="ct-rep"><option value="uma">Só uma vez</option><option value="parc">Parcelado (divide o valor)</option><option value="mes">Todo mês (mesmo valor)</option></select></label>
+      <label class="f" id="ct-n-l" hidden>Quantas vezes<div class="unit"><input id="ct-n" type="number" step="1" min="2" max="60" value="12"><span>x</span></div></label>` : ""}
+      <label class="f" style="align-content:end"><span style="display:flex;gap:8px;align-items:center;padding:9px 0"><input type="checkbox" id="ct-pago" ${c.pago ? "checked" : ""}> ${rec ? "Já recebido" : "Já paga"}</span></label>
+      <label class="f" style="grid-column:1/-1">Observações<textarea id="ct-obs">${esc(c.obs)}</textarea></label>
+    </div>
+    <div class="fs actions"><button class="btn pri" type="submit">${isNew ? "Salvar" : "Salvar alterações"}</button><span class="t2" id="ct-res" style="color:var(--muted);font-size:12px"></span></div></div></form>
+    <datalist id="dl-cat">${CATEGORIAS.map(x => `<option value="${esc(x)}">`).join("")}</datalist>
+    <datalist id="dl-pessoa">${pessoas.map(x => `<option value="${esc(x)}">`).join("")}</datalist>`;
+  const f = $("#ct-form");
+  const upd = () => { if (!isNew) return; const rep = $("#ct-rep").value, n = Math.max(2, Math.round(num($("#ct-n").value))), v = num($("#ct-valor").value);
+    $("#ct-n-l").hidden = rep === "uma";
+    $("#ct-res").textContent = rep === "parc" && v ? `${n} parcelas de ${brl(v / n)}` : rep === "mes" && v ? `${n} contas de ${brl(v)}, uma por mês` : ""; };
+  f.addEventListener("input", upd); f.addEventListener("change", upd); upd();
+  $("#ct-close").addEventListener("click", () => slot.innerHTML = "");
+  f.addEventListener("submit", async e => {
+    e.preventDefault();
+    const base = { ...c, desc: $("#ct-desc").value.trim(), categoria: $("#ct-cat").value.trim(), pessoa: $("#ct-pessoa").value.trim(), obs: $("#ct-obs").value };
+    const pago = $("#ct-pago").checked, v = num($("#ct-valor").value), venc = $("#ct-venc").value;
+    if (!rec && base.pessoa && !fornecedorPorNome(base.pessoa) && base.categoria === "Filamento e insumos") garantirFornecedor(base.pessoa);
+    if (!isNew) { await saveDoc("contas", { ...base, valor: v, venc, pago, pagoEm: pago ? (c.pagoEm || today()) : "" }); slot.innerHTML = ""; toast("Conta atualizada"); return; }
+    const rep = $("#ct-rep").value, n = rep === "uma" ? 1 : Math.max(2, Math.round(num($("#ct-n").value))), grupo = uid("g");
+    const parc = rep === "parc" ? Math.floor(v / n * 100) / 100 : v;
+    for (let i = 0; i < n; i++) {
+      const valor = rep === "parc" && i === n - 1 ? Math.round((v - parc * (n - 1)) * 100) / 100 : parc;
+      const paga = pago && i === 0;
+      await saveDoc("contas", { ...base, id: uid("a"), grupo, valor, venc: addMes(venc, i), parcela: n > 1 ? `${i + 1}/${n}` : "", pago: paga, pagoEm: paga ? today() : "", criado: today() });
+    }
+    slot.innerHTML = ""; toast(n > 1 ? `${n} contas lançadas` : "Conta lançada");
+  });
+  slot.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#ct-desc").focus({ preventScroll: true });
+}
+/* parcelas de uma nota fiscal comprada a prazo */
+async function salvarPagamentoNota(nfId, forn, numero, total, pg) {
+  const velhas = state.contas.filter(c => c.nfId === nfId);
+  if (pg.modo !== "prazo") { for (const c of velhas) await delDoc("contas", c.id); return; }
+  const n = Math.max(1, Math.round(pg.n)), mesmas = velhas.length === n && Math.abs(velhas.reduce((s, c) => s + num(c.valor), 0) - total) < 0.01 && velhas.some(c => c.venc === pg.venc);
+  if (mesmas) { for (const c of velhas) if (c.pessoa !== forn) await saveDoc("contas", { ...c, pessoa: forn }); return; }
+  for (const c of velhas) await delDoc("contas", c.id);
+  const parc = Math.floor(total / n * 100) / 100;
+  for (let i = 0; i < n; i++) await saveDoc("contas", { id: uid("a"), tipo: "pagar", nfId, desc: `Nota fiscal${numero ? " " + numero : ""}`, categoria: "Filamento e insumos", pessoa: forn, valor: i === n - 1 ? Math.round((total - parc * (n - 1)) * 100) / 100 : parc, venc: addMes(pg.venc, i), parcela: n > 1 ? `${i + 1}/${n}` : "", pago: false, pagoEm: "", obs: "", criado: today() });
+}
+
 /* ---------- render ---------- */
 function renderAll() {
   aplicarMarca();
-  renderOrders(); renderPecas(); renderPanel(); renderBuys(); renderProdutos(); renderClientes(); renderFornecedores(); fillPedidoSelect();
+  renderOrders(); renderPecas(); renderPanel(); renderBuys(); renderProdutos(); renderClientes(); renderFornecedores(); renderFinanceiro(); fillPedidoSelect();
   if ($("#c-mats").refresh) $("#c-mats").refresh();
   if ($("#c-ins").refresh) $("#c-ins").refresh();
   calcUpdate();
